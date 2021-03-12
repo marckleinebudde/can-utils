@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <linux/kernel.h>
-
 #include "mcp251xfd-dump-userspace.h"
 
 static void print_usage(char *prg)

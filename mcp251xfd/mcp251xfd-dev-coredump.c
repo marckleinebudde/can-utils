@@ -15,8 +15,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <linux/kernel.h>
-
 #include "mcp251xfd.h"
 #include "mcp251xfd-dump-userspace.h"
 
