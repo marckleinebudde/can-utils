@@ -10,6 +10,8 @@
 #ifndef _MCP251XFD_H
 #define _MCP251XFD_H
 
+#include <linux/kernel.h>
+
 /* MPC251x registers */
 
 /* CAN FD Controller Module SFR */

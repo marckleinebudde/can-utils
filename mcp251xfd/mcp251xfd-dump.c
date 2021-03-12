@@ -6,8 +6,6 @@
 //               Marc Kleine-Budde <kernel@pengutronix.de>
 //
 
-#include <linux/kernel.h>
-
 #include "mcp251xfd-dump-userspace.h"
 
 struct mcp251xfd_dump_regs_fifo {
