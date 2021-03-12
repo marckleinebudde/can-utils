@@ -388,4 +388,8 @@ struct mcp251xfd_hw_rx_obj_canfd {
 	u8 data[sizeof_field(struct canfd_frame, data)];
 };
 
+u16 mcp251xfd_crc16_compute(const void *data, size_t data_size);
+u16 mcp251xfd_crc16_compute2(const void *cmd, size_t cmd_size,
+                             const void *data, size_t data_size);
+
 #endif
