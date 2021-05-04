@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <sched.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@ static int sockfd;
 static int test_loops;
 static int exit_sig;
 static int inflight_count = CAN_MSG_COUNT;
+static bool ignore_rx_tx_error = false;
 
 static void print_usage(char *prg)
 {
@@ -60,6 +62,7 @@ static void print_usage(char *prg)
 		"Options:\n"
 		"         -f COUNT (number of frames in flight, default: %d)\n"
 		"         -g       (generate messages)\n"
+		"         -i       (ignore RX before TX errors)\n"
 		"         -l COUNT (test loop count)\n"
 		"         -v       (low verbosity)\n"
 		"         -vv      (high verbosity)\n"
@@ -335,7 +338,8 @@ static int can_echo_gen(void)
 			if (!recv_tx[recv_rx_pos]) {
 				printf("RX before TX!\n");
 				print_frame(&rx_frame, 0);
-				running = 0;
+				if (!ignore_rx_tx_error)
+					running = 0;
 			}
 			/* compare with expected */
 			compare_frame(&tx_frames[recv_rx_pos], &rx_frame, 1);
@@ -374,7 +378,7 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, signal_handler);
 	signal(SIGINT, signal_handler);
 
-	while ((opt = getopt(argc, argv, "f:gl:v?")) != -1) {
+	while ((opt = getopt(argc, argv, "f:gil:v?")) != -1) {
 		switch (opt) {
 		case 'f':
 			inflight_count = atoi(optarg);
@@ -384,6 +388,10 @@ int main(int argc, char *argv[])
 			echo_gen = 1;
 			break;
 
+		case 'i':
+			ignore_rx_tx_error = true;
+			break;
+
 		case 'l':
 			test_loops = atoi(optarg);
 			break;
@@ -391,7 +399,7 @@ int main(int argc, char *argv[])
 		case 'v':
 			verbose++;
 			break;
-			
+
 		case '?':
 		default:
 			print_usage(basename(argv[0]));
