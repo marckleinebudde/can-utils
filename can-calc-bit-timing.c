@@ -1137,6 +1137,33 @@ static const struct calc_bittiming_const can_calc_consts[] = {
 			{ .clk = 79999999, .name = "Versal ACAP" },
 			{ .clk = 80000000, .name = "Versal ACAP" },
 		},
+	}, {
+		.bittiming_const = {	/* xilinx internal version */
+			.name = "xilinx_can_fd2i",
+			.tseg1_min = 1,
+			.tseg1_max = 256,
+			.tseg2_min = 1,
+			.tseg2_max = 128,
+			.sjw_max = 128,
+			.brp_min = 1,	/* mainline uses 2 here */
+			.brp_max = 256,
+			.brp_inc = 1,
+		},
+		.data_bittiming_const = {
+			.name = "xilinx_can_fd2i",
+			.tseg1_min = 1,
+			.tseg1_max = 32,
+			.tseg2_min = 1,
+			.tseg2_max = 16,
+			.sjw_max = 16,
+			.brp_min = 1,	/* mainline uses 2 here */
+			.brp_max = 256,
+			.brp_inc = 1,
+		},
+		.ref_clk = {
+			{ .clk = 79999999, .name = "Versal ACAP" },
+			{ .clk = 80000000, .name = "Versal ACAP" },
+		},
 	},
 };
 
