@@ -48,7 +48,8 @@ EXTRA_DIST += \
 	calc-bit-timing/can-calc-bit-timing-v2_6_31.c \
 	calc-bit-timing/can-calc-bit-timing-v3_18.c \
 	calc-bit-timing/can-calc-bit-timing-v4_8.c \
-	calc-bit-timing/can-calc-bit-timing-can_next.c
+	calc-bit-timing/can-calc-bit-timing-can_next.c \
+	calc-bit-timing/can-calc-bit-timing-devel.c
 
 mcp251xfd_dump_SOURCES = \
 	mcp251xfd/mcp251xfd-dev-coredump.c \

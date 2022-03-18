@@ -1229,6 +1229,12 @@ static const unsigned int common_data_bitrates[] = {
 #undef can_update_sample_point
 #undef can_calc_bittiming
 
+#define can_update_sample_point can_update_sample_point_devel
+#define can_calc_bittiming can_calc_bittiming_devel
+#include "can-calc-bit-timing-devel.c"
+#undef can_update_sample_point
+#undef can_calc_bittiming
+
 static const struct can_calc_bittiming calc_bittiming_list[] = {
 	/* 1st will be default */
 	{
@@ -1243,6 +1249,9 @@ static const struct can_calc_bittiming calc_bittiming_list[] = {
 	}, {
 		.alg_const = can_calc_bittiming_can_next,
 		.name = "can-next",
+	}, {
+		.alg_const = can_calc_bittiming_devel,
+		.name = "devel",
 	},
 };
 
