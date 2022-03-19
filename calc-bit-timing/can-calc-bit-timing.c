@@ -1198,6 +1198,12 @@ static const unsigned int common_data_bitrates[] = {
 #define CAN_CALC_MAX_ERROR 50 /* in one-tenth of a percent */
 #define CAN_CALC_SYNC_SEG 1
 
+#define can_update_spt can_update_spt_v2_6_31
+#define can_calc_bittiming can_calc_bittiming_v2_6_31
+#include "can-calc-bit-timing-v2_6_31.c"
+#undef can_update_spt
+#undef can_calc_bittiming
+
 #define can_update_spt can_update_spt_v3_18
 #define can_calc_bittiming can_calc_bittiming_v3_18
 #include "can-calc-bit-timing-v3_18.c"
@@ -1218,6 +1224,9 @@ static const struct can_calc_bittiming calc_bittiming_list[] = {
 	}, {
 		.alg = can_calc_bittiming_v3_18,
 		.name = "v3.18",
+	}, {
+		.alg = can_calc_bittiming_v2_6_31,
+		.name = "v2.6.31",
 	},
 };
 
