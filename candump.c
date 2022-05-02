@@ -44,7 +44,9 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <getopt.h>
 #include <libgen.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -125,24 +127,25 @@ static void print_usage(void)
 	fprintf(stderr, "\nUsage: %s [options] <CAN interface>+\n", progname);
 	fprintf(stderr, "  (use CTRL-C to terminate %s)\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "         -t <type>   (timestamp: (a)bsolute/(d)elta/(z)ero/(A)bsolute w date)\n");
-	fprintf(stderr, "         -H          (read hardware timestamps instead of system timestamps)\n");
-	fprintf(stderr, "         -c          (increment color mode level)\n");
-	fprintf(stderr, "         -i          (binary output - may exceed 80 chars/line)\n");
-	fprintf(stderr, "         -a          (enable additional ASCII output)\n");
-	fprintf(stderr, "         -S          (swap byte order in printed CAN data[] - marked with '%c' )\n", SWAP_DELIMITER);
-	fprintf(stderr, "         -s <level>  (silent mode - %d: off (default) %d: animation %d: silent)\n", SILENT_OFF, SILENT_ANI, SILENT_ON);
-	fprintf(stderr, "         -l          (log CAN-frames into file. Sets '-s %d' by default)\n", SILENT_ON);
-	fprintf(stderr, "         -f <fname>  (log CAN-frames into file <fname>. Sets '-s %d' by default)\n", SILENT_ON);
-	fprintf(stderr, "         -L          (use log file format on stdout)\n");
-	fprintf(stderr, "         -n <count>  (terminate after reception of <count> CAN frames)\n");
-	fprintf(stderr, "         -r <size>   (set socket receive buffer to <size>)\n");
-	fprintf(stderr, "         -D          (Don't exit if a \"detected\" can device goes down)\n");
-	fprintf(stderr, "         -d          (monitor dropped CAN frames)\n");
-	fprintf(stderr, "         -e          (dump CAN error frames in human-readable format)\n");
-	fprintf(stderr, "         -8          (display raw DLC values in {} for Classical CAN)\n");
-	fprintf(stderr, "         -x          (print extra message infos, rx/tx brs esi)\n");
-	fprintf(stderr, "         -T <msecs>  (terminate after <msecs> if no frames were received)\n");
+	fprintf(stderr, "         -t <type>    (timestamp: (a)bsolute/(d)elta/(z)ero/(A)bsolute w date)\n");
+	fprintf(stderr, "         --start <ns> (start time (UTC nanoseconds))\n");
+	fprintf(stderr, "         -H           (read hardware timestamps instead of system timestamps)\n");
+	fprintf(stderr, "         -c           (increment color mode level)\n");
+	fprintf(stderr, "         -i           (binary output - may exceed 80 chars/line)\n");
+	fprintf(stderr, "         -a           (enable additional ASCII output)\n");
+	fprintf(stderr, "         -S           (swap byte order in printed CAN data[] - marked with '%c' )\n", SWAP_DELIMITER);
+	fprintf(stderr, "         -s <level>   (silent mode - %d: off (default) %d: animation %d: silent)\n", SILENT_OFF, SILENT_ANI, SILENT_ON);
+	fprintf(stderr, "         -l           (log CAN-frames into file. Sets '-s %d' by default)\n", SILENT_ON);
+	fprintf(stderr, "         -f <fname>   (log CAN-frames into file <fname>. Sets '-s %d' by default)\n", SILENT_ON);
+	fprintf(stderr, "         -L           (use log file format on stdout)\n");
+	fprintf(stderr, "         -n <count>   (terminate after reception of <count> CAN frames)\n");
+	fprintf(stderr, "         -r <size>    (set socket receive buffer to <size>)\n");
+	fprintf(stderr, "         -D           (Don't exit if a \"detected\" can device goes down)\n");
+	fprintf(stderr, "         -d           (monitor dropped CAN frames)\n");
+	fprintf(stderr, "         -e           (dump CAN error frames in human-readable format)\n");
+	fprintf(stderr, "         -8           (display raw DLC values in {} for Classical CAN)\n");
+	fprintf(stderr, "         -x           (print extra message infos, rx/tx brs esi)\n");
+	fprintf(stderr, "         -T <msecs>   (terminate after <msecs> if no frames were received)\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Up to %d CAN interfaces with optional filter sets can be specified\n", MAXSOCK);
 	fprintf(stderr, "on the commandline in the form: <ifname>[,filter]*\n");
@@ -272,6 +275,10 @@ static inline void print_timestamp(const char timestamp, const struct timeval *t
 	printf("%s", buffer);
 }
 
+enum {
+	OPT_START = UCHAR_MAX + 1,
+};
+
 int main(int argc, char **argv)
 {
 	int fd_epoll;
@@ -309,7 +316,7 @@ int main(int argc, char **argv)
 	struct canfd_frame frame;
 	int nbytes, i, maxdlen;
 	struct ifreq ifr;
-	struct timeval tv, last_tv;
+	struct timeval tv, last_tv = { 0 };
 	int timeout_ms = -1; /* default to no timeout */
 	FILE *logfile = NULL;
 	char fname[83]; /* suggested by -Wformat-overflow= */
@@ -319,12 +326,14 @@ int main(int argc, char **argv)
 	signal(SIGHUP, sigterm);
 	signal(SIGINT, sigterm);
 
-	last_tv.tv_sec = 0;
-	last_tv.tv_usec = 0;
-
 	progname = basename(argv[0]);
 
-	while ((opt = getopt(argc, argv, "t:HciaSs:lf:Ln:r:Dde8xT:h?")) != -1) {
+	const struct option long_options[] = {
+		{ "start",	required_argument,	0, OPT_START, },
+		{ 0,		0,			0, 0 },
+	};
+
+	while ((opt = getopt_long(argc, argv, "t:HciaSs:lf:Ln:r:Dde8xT:h?", long_options, NULL)) != -1) {
 		switch (opt) {
 		case 't':
 			timestamp = optarg[0];
@@ -339,7 +348,15 @@ int main(int argc, char **argv)
 				logtimestamp = 'a';
 			}
 			break;
+		case OPT_START: {
+			int64_t start_time_ns;
 
+			start_time_ns = strtoll(optarg, NULL, 0);
+			last_tv.tv_sec = start_time_ns / 1000000000LL;
+			last_tv.tv_usec = start_time_ns % 1000000000LL / 1000;
+
+			break;
+		}
 		case 'H':
 			hwtimestamp = 1;
 			break;
