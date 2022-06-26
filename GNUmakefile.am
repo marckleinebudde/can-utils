@@ -52,6 +52,7 @@ bin_PROGRAMS = \
 	asc2log \
 	bcmserver \
 	can-calc-bit-timing \
+	can-roundtrip-stats \
 	canbusload \
 	candump \
 	canfdtest \

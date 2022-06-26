@@ -85,14 +85,15 @@ PROGRAMS := \
 	asc2log \
 	bcmserver \
 	can-calc-bit-timing \
+	can-roundtrip-stats \
 	canbusload \
 	candump \
 	canfdtest \
 	cangen \
-	cansequence \
 	canlogserver \
 	canplayer \
 	cansend \
+	cansequence \
 	cansniffer \
 	log2asc \
 	log2long \

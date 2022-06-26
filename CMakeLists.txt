@@ -47,6 +47,7 @@ set(PROGRAMS
     ${PROGRAMS_CANLIB}
     bcmserver
     can-calc-bit-timing
+    can-roundtrip-stats
     canfdtest
     cangw
     cansniffer

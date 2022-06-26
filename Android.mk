@@ -191,6 +191,21 @@ LOCAL_VENDOR_MODULE := true
 include $(BUILD_EXECUTABLE)
 
 #
+# can-roundtrip-stats
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := can-roundtrip-stats.c
+LOCAL_MODULE := can-roundtrip-stats
+LOCAL_MODULE_TAGS := optional
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include/
+LOCAL_CFLAGS := $(PRIVATE_LOCAL_CFLAGS)
+LOCAL_VENDOR_MODULE := true
+
+include $(BUILD_EXECUTABLE)
+
+#
 # canbusload
 #
 
