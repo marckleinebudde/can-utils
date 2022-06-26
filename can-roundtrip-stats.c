@@ -145,7 +145,7 @@ void make_can_frame(struct can_frame *frame, int can_id, char *data)
 	can_dlc = data_length / 2;
 	if (can_dlc > CAN_MAX_DLEN)
 		error("Maximum payload length is 8 bytes.\n");
-	
+
 	frame->can_id = can_id;
 	frame->can_dlc = can_dlc;
 
@@ -166,7 +166,7 @@ void make_canfd_frame(struct canfd_frame *frame, int can_id, char *data, uint8_t
 	can_len = data_length / 2;
 	if (can_len > CANFD_MAX_DLEN)
 		error("Maximum payload length is 8 bytes.\n");
-	
+
 	frame->can_id = can_id;
 	frame->len = can_len;
 	frame->flags = flags;
@@ -189,7 +189,7 @@ void send_can_frame(int soc, int can_id, size_t len, uint64_t data)
 		debug(1, "Wrote %zd bytes instead of %zd.\n", sentbytes, sizeof(struct can_frame));
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
-	
+
 	debug(1, "Send: %03X [%d] %0*zX.\n",
 	      frame.can_id, frame.can_dlc, frame.can_dlc * 2, data_to_int(frame.data));
 }
@@ -206,7 +206,7 @@ void send_can_frame_str(int soc, int can_id, char *data)
 		debug(1, "Wrote %zd bytes instead of %zd.\n", sentbytes, sizeof(struct can_frame));
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
-	
+
 	debug(1, "Send: %03X [%d] %0*zX.\n",
 	      frame.can_id, frame.can_dlc, frame.can_dlc * 2, data_to_int(frame.data));
 }
@@ -223,7 +223,7 @@ void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
 		debug(1, "Wrote %zd bytes instead of %zd.\n", sentbytes, sizeof(struct can_frame));
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
-	
+
 	debug(1, "Send: %03X [%d] %0*zX.\n",
 	      frame.can_id, frame.len, frame.len * 2, data_to_int(frame.data));
 }
@@ -233,7 +233,7 @@ int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 	int recvbytes = 0;
 	fd_set readSet;
 	struct timeval timeout = {ms_timeout / 1000, (ms_timeout % 1000) * 1000};
-	
+
 	FD_ZERO(&readSet);
 	FD_SET(soc, &readSet);
 
@@ -335,7 +335,7 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		debug(1, "Receive (errqueue): %03X [%d], data: %"PRIu64,
 		       frame->can_id, frame->len, data_to_int(frame->data));
 	}
-		
+
 	for (cmsg = CMSG_FIRSTHDR(msg);
 			 cmsg /* && (cmsg->cmsg_level == SOL_SOCKET) */;
 			 cmsg = CMSG_NXTHDR(msg, cmsg)) {
@@ -395,12 +395,12 @@ int main(int argc, char **argv)
 	int cnt = 0;
 	double kernel_time_sum = 0, user_time_sum = 0;
 	double user_to_kernel_tx_sum = 0, kernel_to_user_rx_sum = 0;
-	
+
 	if (argc != 2)
 		ifname = default_ifname;
 	else
 		ifname = argv[1];
-	
+
 	if((soc = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
 			perror("Error while opening CAN socket");
 			exit(EXIT_FAILURE);
@@ -410,7 +410,7 @@ int main(int argc, char **argv)
 	ifr.ifr_name[IFNAMSIZ-1] = '\0';
 	ioctl(soc, SIOCGIFINDEX, &ifr);
 
-	
+
 	addr.can_family  = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
 	fcntl(soc, F_SETFL, O_NONBLOCK);
@@ -447,7 +447,7 @@ int main(int argc, char **argv)
 		/* these settings may be modified by recvmsg() */
 		iov.iov_len = sizeof(frame);
 		msg.msg_namelen = sizeof(addr);
-		msg.msg_controllen = sizeof(ctrlmsg);  
+		msg.msg_controllen = sizeof(ctrlmsg);
 		msg.msg_flags = 0;
 
 		if (!got_tx_timestamp) {
