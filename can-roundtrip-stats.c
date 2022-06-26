@@ -58,7 +58,7 @@ timespec_sub(const struct timespec a, const struct timespec b)
 {
 	struct timespec diff;
 
-	diff.tv_sec  = a.tv_sec - b.tv_sec;
+	diff.tv_sec = a.tv_sec - b.tv_sec;
 	diff.tv_nsec = a.tv_nsec - b.tv_nsec;
 	if (diff.tv_nsec < 0) {
 		diff.tv_sec--;
@@ -120,13 +120,13 @@ uint64_t data_to_int(uint8_t *data)
 {
 	uint64_t res;
 
-	res  = (uint64_t)data[0] << 56;
+	res = (uint64_t)data[0] << 56;
 	res += (uint64_t)data[1] << 48;
 	res += (uint64_t)data[2] << 40;
 	res += (uint64_t)data[3] << 32;
 	res += (uint64_t)data[4] << 24;
 	res += (uint64_t)data[5] << 16;
-	res += (uint64_t)data[6] <<  8;
+	res += (uint64_t)data[6] << 8;
 	res += (uint64_t)data[7];
 
 	return res;
@@ -149,7 +149,7 @@ void make_can_frame(struct can_frame *frame, int can_id, char *data)
 	frame->can_id = can_id;
 	frame->can_dlc = can_dlc;
 
-	for (i=0; i<can_dlc; i++)
+	for (i = 0; i < can_dlc; i++)
 		frame->data[i] = byte_to_int(data + 2 * i);
 }
 
@@ -171,7 +171,7 @@ void make_canfd_frame(struct canfd_frame *frame, int can_id, char *data, uint8_t
 	frame->len = can_len;
 	frame->flags = flags;
 
-	for (i=0; i<can_len; i++)
+	for (i = 0; i < can_len; i++)
 		frame->data[i] = byte_to_int(data + 2 * i);
 }
 
@@ -186,7 +186,8 @@ void send_can_frame(int soc, int can_id, size_t len, uint64_t data)
 	sentbytes = write(soc, &frame, sizeof(struct can_frame));
 
 	if (sentbytes != sizeof(struct can_frame))
-		debug(1, "Wrote %zd bytes instead of %zd.\n", sentbytes, sizeof(struct can_frame));
+		debug(1, "Wrote %zd bytes instead of %zd.\n",
+		      sentbytes, sizeof(struct can_frame));
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
 
@@ -203,12 +204,14 @@ void send_can_frame_str(int soc, int can_id, char *data)
 	sentbytes = write(soc, &frame, sizeof(frame));
 
 	if (sentbytes != sizeof(frame))
-		debug(1, "Wrote %zd bytes instead of %zd.\n", sentbytes, sizeof(struct can_frame));
+		debug(1, "Wrote %zd bytes instead of %zd.\n",
+		      sentbytes, sizeof(struct can_frame));
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
 
 	debug(1, "Send: %03X [%d] %0*zX.\n",
-	      frame.can_id, frame.can_dlc, frame.can_dlc * 2, data_to_int(frame.data));
+	      frame.can_id, frame.can_dlc, frame.can_dlc * 2,
+	      data_to_int(frame.data));
 }
 
 void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
@@ -220,19 +223,24 @@ void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
 	sentbytes = write(soc, &frame, sizeof(frame));
 
 	if (sentbytes != sizeof(frame))
-		debug(1, "Wrote %zd bytes instead of %zd.\n", sentbytes, sizeof(struct can_frame));
+		debug(1, "Wrote %zd bytes instead of %zd.\n",
+		      sentbytes, sizeof(struct can_frame));
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
 
 	debug(1, "Send: %03X [%d] %0*zX.\n",
-	      frame.can_id, frame.len, frame.len * 2, data_to_int(frame.data));
+	      frame.can_id, frame.len, frame.len * 2,
+	      data_to_int(frame.data));
 }
 
 int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 {
 	int recvbytes = 0;
 	fd_set readSet;
-	struct timeval timeout = {ms_timeout / 1000, (ms_timeout % 1000) * 1000};
+	struct timeval timeout = {
+		.tv_sec = ms_timeout / 1000,
+		.tv_usec =(ms_timeout % 1000) * 1000,
+	};
 
 	FD_ZERO(&readSet);
 	FD_SET(soc, &readSet);
@@ -242,7 +250,7 @@ int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 			int i;
 
 			recvbytes = read(soc, frame, sizeof(struct canfd_frame));
-			if(!recvbytes)
+			if (!recvbytes)
 				error("This portion of code should not be reached.\n");
 
 			debug(1, "Receive: %03X [%d] ",
@@ -274,40 +282,39 @@ int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 			perror("recvmsg");
 		warn_once = true;
 		return ret;
-	}
-	else {
+	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
-		debug(1, "Receive (errqueue): %03X [%d], data: %"PRIu64,
+		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64,
 		      frame->can_id, frame->len, data_to_int(frame->data));
 	}
 
 	for (cmsg = CMSG_FIRSTHDR(msg);
-			 cmsg /* && (cmsg->cmsg_level == SOL_SOCKET) */;
-			 cmsg = CMSG_NXTHDR(msg, cmsg)) {
+	     cmsg /* && (cmsg->cmsg_level == SOL_SOCKET) */;
+	     cmsg = CMSG_NXTHDR(msg, cmsg)) {
 		struct scm_timestamping *tss;
 		struct sock_extended_err *serr;
 
 		switch (cmsg->cmsg_type) {
-	case SCM_TIMESTAMPING:
-		tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
-		debug(1, "SCM_TIMESTAMPING: tss->ts[0]: %lu.%lu\n",
-		      tss->ts[0].tv_sec, tss->ts[0].tv_nsec);
-		*tspec = tss->ts[0];
-		break;
+		case SCM_TIMESTAMPING:
+			tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
+			debug(1, "SCM_TIMESTAMPING: tss->ts[0]: %lu.%lu\n",
+			      tss->ts[0].tv_sec, tss->ts[0].tv_nsec);
+			*tspec = tss->ts[0];
+			break;
 
-	case PACKET_TX_TIMESTAMP:
-		serr = (struct sock_extended_err *)CMSG_DATA(cmsg);
-		if (serr->ee_errno != ENOMSG ||
-		    serr->ee_origin != SO_EE_ORIGIN_TIMESTAMPING) {
-			fprintf(stderr, "unknown ip error %d %d\n",
-				serr->ee_errno,
-				serr->ee_origin);
-			serr = NULL;
-		} else {
-			debug(1, "PACKET_TX_TIMESTAMP: ee_info: %d, ee_data: %d\n",
-			      serr->ee_info, serr->ee_data);
-		}
-		break;
+		case PACKET_TX_TIMESTAMP:
+			serr = (struct sock_extended_err *)CMSG_DATA(cmsg);
+			if (serr->ee_errno != ENOMSG ||
+			    serr->ee_origin != SO_EE_ORIGIN_TIMESTAMPING) {
+				fprintf(stderr, "unknown ip error %d %d\n",
+					serr->ee_errno,
+					serr->ee_origin);
+				serr = NULL;
+			} else {
+				debug(1, "PACKET_TX_TIMESTAMP: ee_info: %d, ee_data: %d\n",
+				      serr->ee_info, serr->ee_data);
+			}
+			break;
 
 		default:
 			debug(1, "Unknown cmsg_type: %d\n", cmsg->cmsg_type);
@@ -329,31 +336,34 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 			perror("recvmsg");
 		warn_once = true;
 		return ret;
-	}
-	else {
+	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
-		debug(1, "Receive (errqueue): %03X [%d], data: %"PRIu64,
-		       frame->can_id, frame->len, data_to_int(frame->data));
+		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64,
+		      frame->can_id, frame->len, data_to_int(frame->data));
 	}
 
 	for (cmsg = CMSG_FIRSTHDR(msg);
-			 cmsg /* && (cmsg->cmsg_level == SOL_SOCKET) */;
-			 cmsg = CMSG_NXTHDR(msg, cmsg)) {
+	     cmsg /* && (cmsg->cmsg_level == SOL_SOCKET) */;
+	     cmsg = CMSG_NXTHDR(msg, cmsg)) {
 		struct timeval *tv;
 		struct timespec *stamp;
 
 		switch (cmsg->cmsg_type) {
 		case SO_TIMESTAMP:
 			tv = (struct timeval *)CMSG_DATA(cmsg);
-			debug(1, "SO_TIMESTAMP: stamp = %lu.%06lu\n", tv->tv_sec, tv->tv_usec);
+			debug(1, "SO_TIMESTAMP: stamp = %lu.%06lu\n",
+			      tv->tv_sec, tv->tv_usec);
 			tspec->tv_sec = tv->tv_sec;
 			tspec->tv_nsec = tv->tv_usec * 1000;
 			break;
 
 		case SO_TIMESTAMPING:
 			stamp = (struct timespec *)CMSG_DATA(cmsg);
-			for (i = 0; i < (int)(cmsg->cmsg_len / sizeof(struct timespec)); i++)
-				debug(1, "SO_TIMESTAMPING: stamp[%d] = %ld.%09ld\n", i, stamp[i].tv_sec, stamp[i].tv_nsec);
+			for (i = 0;
+			     i < (int)(cmsg->cmsg_len / sizeof(struct timespec));
+			     i++)
+				debug(1, "SO_TIMESTAMPING: stamp[%d] = %ld.%09ld\n",
+				      i, stamp[i].tv_sec, stamp[i].tv_nsec);
 			*tspec = stamp[0];
 			break;
 
@@ -368,8 +378,8 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 int main(int argc, char **argv)
 {
 	int soc;
-	struct sockaddr_can addr = {0};
-	struct ifreq ifr = {0};
+	struct sockaddr_can addr = { 0 };
+	struct ifreq ifr = { 0 };
 
 	const char *default_ifname = "can0";
 	const char *ifname;
@@ -407,11 +417,10 @@ int main(int argc, char **argv)
 	}
 
 	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-	ifr.ifr_name[IFNAMSIZ-1] = '\0';
+	ifr.ifr_name[IFNAMSIZ - 1] = '\0';
 	ioctl(soc, SIOCGIFINDEX, &ifr);
 
-
-	addr.can_family  = AF_CAN;
+	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
 	fcntl(soc, F_SETFL, O_NONBLOCK);
 
@@ -427,11 +436,10 @@ int main(int argc, char **argv)
 
 	printf("%s at index %d\n", ifname, ifr.ifr_ifindex);
 
-	if (bind(soc, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-		{
-			perror("Error in socket bind");
-			exit(EXIT_FAILURE);
-		}
+	if (bind(soc, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("Error in socket bind");
+		exit(EXIT_FAILURE);
+	}
 
 	frame.can_id = 0;
 	/* these settings are static and can be held out of the hot path */
@@ -487,7 +495,9 @@ int main(int argc, char **argv)
 			       timespec_sub(user_rx, kernel_rx).tv_sec,
 			       timespec_sub(user_rx, kernel_rx).tv_nsec);
 			printf("[Average] Total: %d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
-			       cnt, user_to_kernel_tx_sum / cnt, kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt, user_time_sum / cnt);
+			       cnt, user_to_kernel_tx_sum / cnt,
+			       kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt,
+			       user_time_sum / cnt);
 		}
 	}
 
