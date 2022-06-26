@@ -2,7 +2,7 @@
  *
  * mcp251xfd - Microchip MCP251xFD Family CAN controller driver
  *
- * Copyright (c) 2019, 2020 Pengutronix,
+ * Copyright (c) 2019, 2020, 2021 Pengutronix,
  *               Marc Kleine-Budde <kernel@pengutronix.de>
  * Copyright (c) 2019 Martin Sperl <kernel@martin.sperl.org>
  */
@@ -296,7 +296,7 @@
 #define MCP251XFD_OBJ_FLAGS_BRS BIT(6)
 #define MCP251XFD_OBJ_FLAGS_RTR BIT(5)
 #define MCP251XFD_OBJ_FLAGS_IDE BIT(4)
-#define MCP251XFD_OBJ_FLAGS_DLC GENMASK(3, 0)
+#define MCP251XFD_OBJ_FLAGS_DLC_MASK GENMASK(3, 0)
 
 #define MCP251XFD_REG_FRAME_EFF_SID_MASK GENMASK(28, 18)
 #define MCP251XFD_REG_FRAME_EFF_EID_MASK GENMASK(17, 0)

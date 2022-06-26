@@ -748,7 +748,7 @@ mcp251xfd_dump_ram_tx_obj_one(const struct mcp251xfd_priv *priv,
 	__dump_mask(hw_tx_obj->flags, MCP251XFD_OBJ_FLAGS, SEQ_MCP2518FD, "0x%06lx", "Sequence (MCP2518)");
 	mcp251xfd_dump_ram_fifo_obj_data(priv,
 					 hw_tx_obj->data,
-					 FIELD_GET(MCP251XFD_OBJ_FLAGS_DLC, hw_tx_obj->flags));
+					 FIELD_GET(MCP251XFD_OBJ_FLAGS_DLC_MASK, hw_tx_obj->flags));
 	pr_info("\n");
 }
 
@@ -808,7 +808,7 @@ mcp251xfd_dump_ram_rx_obj_one(const struct mcp251xfd_priv *priv,
 	pr_info("%16s = 0x%08x\n", "id", hw_rx_obj->id);
 	pr_info("%16s = 0x%08x\n", "flags", hw_rx_obj->flags);
 	pr_info("%16s = 0x%08x\n", "ts", hw_rx_obj->ts);
-	mcp251xfd_dump_ram_fifo_obj_data(priv, hw_rx_obj->data, FIELD_GET(MCP251XFD_OBJ_FLAGS_DLC, hw_rx_obj->flags));
+	mcp251xfd_dump_ram_fifo_obj_data(priv, hw_rx_obj->data, FIELD_GET(MCP251XFD_OBJ_FLAGS_DLC_MASK, hw_rx_obj->flags));
 	pr_info("\n");
 }
 
