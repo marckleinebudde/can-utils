@@ -14,6 +14,8 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint32_t __le32;
+typedef uint64_t u64;
+typedef int64_t s64;
 
 struct mcp251xfd_mem;
 
@@ -27,6 +29,8 @@ struct regmap {
 #define BUILD_BUG_ON(...)
 
 #define BITS_PER_LONG (sizeof(long) * 8)
+#define BITS_PER_LONG_LONG (sizeof(long long) * 8)
+#define NSEC_PER_SEC 1000000000L
 
 #define ____cacheline_aligned
 
@@ -64,6 +68,10 @@ int regmap_bulk_read(struct regmap *map, unsigned int reg,
 #define GENMASK(h, l) \
 	(((~UL(0)) - (UL(1) << (l)) + 1) & \
 	 (~UL(0) >> (BITS_PER_LONG - 1 - (h))))
+
+#define GENMASK_ULL(h, l) \
+	(((~ULL(0)) - (ULL(1) << (l)) + 1) & \
+	 (~ULL(0) >> (BITS_PER_LONG_LONG - 1 - (h))))
 
 #define __bf_shf(x) (__builtin_ffsll(x) - 1)
 
