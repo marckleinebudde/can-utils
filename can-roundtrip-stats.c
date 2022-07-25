@@ -375,6 +375,51 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 	return 1;
 }
 
+void print_stats(const char *timestamp_name, canid_t canid,
+		 struct timespec tx, struct timespec rx, struct timespec diff)
+{
+	printf("[%s] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
+	       timestamp_name, canid,
+	       tx.tv_sec, tx.tv_nsec,
+	       rx.tv_sec, rx.tv_nsec,
+	       diff.tv_sec, diff.tv_nsec);
+
+}
+
+void calc_and_print_stats(struct timespec kernel_tx, struct timespec kernel_rx,
+			  struct timespec user_tx, struct timespec user_rx,
+			  canid_t canid)
+{
+	struct timespec kernel_diff, user_diff;
+	struct timespec user_to_kernel_tx, kernel_to_user_rx;
+	static double kernel_time_sum = 0, user_time_sum = 0;
+	static double user_to_kernel_tx_sum = 0, kernel_to_user_rx_sum = 0;
+
+	static int cnt = 0;
+
+	kernel_diff = timespec_sub(kernel_rx, kernel_tx);
+	kernel_time_sum += kernel_diff.tv_sec + kernel_diff.tv_nsec / 1000000000.;
+	user_to_kernel_tx = timespec_sub(kernel_tx, user_tx);
+	user_to_kernel_tx_sum += user_to_kernel_tx.tv_sec + user_to_kernel_tx.tv_nsec / 1000000000.;
+	kernel_to_user_rx = timespec_sub(user_rx, kernel_rx);
+	kernel_to_user_rx_sum += kernel_to_user_rx.tv_sec + kernel_to_user_rx.tv_nsec / 1000000000.;
+	user_diff = timespec_sub(user_rx, user_tx);
+	user_time_sum += user_diff.tv_sec + user_diff.tv_nsec / 1000000000.;
+	cnt++;
+
+	print_stats("User", canid, user_tx, user_rx, user_diff);
+	print_stats("Kernel", canid, kernel_tx, kernel_rx, kernel_diff);
+	printf("User to kernel TX: %ld.%09ld, kernel to user RX:  %ld.%09ld\n",
+	       timespec_sub(kernel_tx, user_tx).tv_sec,
+	       timespec_sub(kernel_tx, user_tx).tv_nsec,
+	       timespec_sub(user_rx, kernel_rx).tv_sec,
+	       timespec_sub(user_rx, kernel_rx).tv_nsec);
+	printf("[Average] Total: %d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
+	       cnt, user_to_kernel_tx_sum / cnt,
+	       kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt,
+	       user_time_sum / cnt);
+}
+
 int main(int argc, char **argv)
 {
 	int soc;
@@ -399,12 +444,8 @@ int main(int argc, char **argv)
 	struct canfd_frame frame;
 	int can_id = 0 /* | CAN_EFF_FLAG */;
 
-	struct timespec kernel_tx, kernel_rx, kernel_diff;
-	struct timespec user_tx, user_rx, user_diff;
-	struct timespec user_to_kernel_tx, kernel_to_user_rx;
-	int cnt = 0;
-	double kernel_time_sum = 0, user_time_sum = 0;
-	double user_to_kernel_tx_sum = 0, kernel_to_user_rx_sum = 0;
+	struct timespec kernel_tx, kernel_rx;
+	struct timespec user_tx, user_rx;
 
 	if (argc != 2)
 		ifname = default_ifname;
@@ -470,34 +511,8 @@ int main(int argc, char **argv)
 		} else if (get_rx_timestamp(soc, &msg, &kernel_rx) == 1) {
 			got_tx_timestamp = false;
 			clock_gettime(CLOCK_REALTIME, &user_rx);
-			kernel_diff = timespec_sub(kernel_rx, kernel_tx);
-			kernel_time_sum += kernel_diff.tv_sec + kernel_diff.tv_nsec / 1000000000.;
-			user_to_kernel_tx = timespec_sub(kernel_tx, user_tx);
-			user_to_kernel_tx_sum += user_to_kernel_tx.tv_sec + user_to_kernel_tx.tv_nsec / 1000000000.;
-			kernel_to_user_rx = timespec_sub(user_rx, kernel_rx);
-			kernel_to_user_rx_sum += kernel_to_user_rx.tv_sec + kernel_to_user_rx.tv_nsec / 1000000000.;
-			user_diff = timespec_sub(user_rx, user_tx);
-			user_time_sum += user_diff.tv_sec + user_diff.tv_nsec / 1000000000.;
-			cnt++;
-			printf("[User] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
-			       ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id,
-			       user_tx.tv_sec, user_tx.tv_nsec,
-			       user_rx.tv_sec, user_rx.tv_nsec,
-			       user_diff.tv_sec, user_diff.tv_nsec);
-			printf("[Kernel] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
-			       ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id,
-			       kernel_tx.tv_sec, kernel_tx.tv_nsec,
-			       kernel_rx.tv_sec, kernel_rx.tv_nsec,
-			       kernel_diff.tv_sec, kernel_diff.tv_nsec);
-			printf("User to kernel TX: %ld.%09ld, kernel to user RX:  %ld.%09ld\n",
-			       timespec_sub(kernel_tx, user_tx).tv_sec,
-			       timespec_sub(kernel_tx, user_tx).tv_nsec,
-			       timespec_sub(user_rx, kernel_rx).tv_sec,
-			       timespec_sub(user_rx, kernel_rx).tv_nsec);
-			printf("[Average] Total: %d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
-			       cnt, user_to_kernel_tx_sum / cnt,
-			       kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt,
-			       user_time_sum / cnt);
+			calc_and_print_stats(kernel_tx, kernel_rx, user_tx, user_rx,
+					     ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id);
 		}
 	}
 
