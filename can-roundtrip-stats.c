@@ -503,11 +503,10 @@ int main(int argc, char **argv)
 			if (get_tx_timestamp(soc, &msg, &kernel_tx) == 1) {
 				got_tx_timestamp = true;
 				continue;
-			} else {
-				usleep(100000);
-				clock_gettime(CLOCK_REALTIME, &user_tx);
-				send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
 			}
+			usleep(100000);
+			clock_gettime(CLOCK_REALTIME, &user_tx);
+			send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
 		} else if (get_rx_timestamp(soc, &msg, &kernel_rx) == 1) {
 			got_tx_timestamp = false;
 			clock_gettime(CLOCK_REALTIME, &user_rx);
