@@ -270,17 +270,19 @@ int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 	return -1;
 }
 
+bool is_timestamp_zero(struct timespec ts)
+{
+	return !(ts.tv_sec || ts.tv_nsec);
+}
+
 int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 {
 	struct cmsghdr *cmsg;
-	static bool warn_once = false;
-	int ret;
+	int i, ret;
 
-	ret = recvmsg(soc, msg, MSG_ERRQUEUE);
+	ret = recvmsg(soc, msg, MSG_ERRQUEUE | 0);
 	if (ret <= 0) {
-		if (!warn_once)
-			perror("recvmsg");
-		warn_once = true;
+		perror("get_tx_timestamp:recvmsg");
 		return ret;
 	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
@@ -297,8 +299,11 @@ int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		switch (cmsg->cmsg_type) {
 		case SCM_TIMESTAMPING:
 			tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
-			debug(1, "SCM_TIMESTAMPING: tss->ts[0]: %lu.%lu\n",
-			      tss->ts[0].tv_sec, tss->ts[0].tv_nsec);
+			for (i = 0;
+			     i < (int)(cmsg->cmsg_len / sizeof(*tss));
+			     i++)
+				debug(1, "SCM_TIMESTAMPING: tss->ts[%d]: %lu.%lu\n",
+				      i, tss->ts[i].tv_sec, tss->ts[i].tv_nsec);
 			*tspec = tss->ts[0];
 			break;
 
@@ -321,25 +326,27 @@ int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		}
 	}
 
-	return 1;
+	return is_timestamp_zero(*tspec) ? -ENODATA : 0;
 }
 
 int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 {
 	struct cmsghdr *cmsg;
-	static bool warn_once = false;
 	int i, ret;
 
 	ret = recvmsg(soc, msg, 0);
 	if (ret <= 0) {
-		if (!warn_once)
-			perror("recvmsg");
-		warn_once = true;
+		perror("get_rx_timestamp:recvmsg");
 		return ret;
 	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
 		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64,
 		      frame->can_id, frame->len, data_to_int(frame->data));
+	}
+
+	if (!(msg->msg_flags & MSG_DONTROUTE)) {
+		debug(0, "We are not the sender, ignore the frame");
+		return -ENODATA;
 	}
 
 	for (cmsg = CMSG_FIRSTHDR(msg);
@@ -360,7 +367,7 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		case SO_TIMESTAMPING:
 			stamp = (struct timespec *)CMSG_DATA(cmsg);
 			for (i = 0;
-			     i < (int)(cmsg->cmsg_len / sizeof(struct timespec));
+			     i < (int)(cmsg->cmsg_len / sizeof(*stamp));
 			     i++)
 				debug(1, "SO_TIMESTAMPING: stamp[%d] = %ld.%09ld\n",
 				      i, stamp[i].tv_sec, stamp[i].tv_nsec);
@@ -372,7 +379,7 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		}
 	}
 
-	return 1;
+	return is_timestamp_zero(*tspec) ? -ENODATA : 0;
 }
 
 void print_stats(const char *timestamp_name, canid_t canid,
@@ -463,7 +470,6 @@ int main(int argc, char **argv)
 
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
-	fcntl(soc, F_SETFL, O_NONBLOCK);
 
 	/* try to switch the socket into CAN FD mode */
 	setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &canfd_on, sizeof(canfd_on));
@@ -491,7 +497,7 @@ int main(int argc, char **argv)
 	msg.msg_control = &ctrlmsg;
 
 	while (true) {
-		static bool got_tx_timestamp = false;
+		int ret;
 
 		/* these settings may be modified by recvmsg() */
 		iov.iov_len = sizeof(frame);
@@ -499,20 +505,29 @@ int main(int argc, char **argv)
 		msg.msg_controllen = sizeof(ctrlmsg);
 		msg.msg_flags = 0;
 
-		if (!got_tx_timestamp) {
-			if (get_tx_timestamp(soc, &msg, &kernel_tx) == 1) {
-				got_tx_timestamp = true;
-				continue;
-			}
-			usleep(100000);
-			clock_gettime(CLOCK_REALTIME, &user_tx);
-			send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
-		} else if (get_rx_timestamp(soc, &msg, &kernel_rx) == 1) {
-			got_tx_timestamp = false;
-			clock_gettime(CLOCK_REALTIME, &user_rx);
-			calc_and_print_stats(kernel_tx, kernel_rx, user_tx, user_rx,
-					     ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id);
-		}
+		/* send new frame */
+		usleep(100000);
+		clock_gettime(CLOCK_REALTIME, &user_tx);
+		send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
+
+
+		/* Reading from the error queue is always a
+		   non-blocking operation. c.f.:
+		   https://docs.kernel.org/networking/timestamping.html#blocking-read
+		   Read first from the "normal" queue to leave time
+		   for the error queue to be ready.*/
+		get_rx_timestamp(soc, &msg, &kernel_rx);
+
+		/* Empirical tests show that the error queue is always
+		   ready after the "normal" one. This while loop is
+		   just a failsafe.
+		   Yet, TODO: use poll() or select() instead of this
+		   dirty while loop. */
+		while ((ret = get_tx_timestamp(soc, &msg, &kernel_tx)) == -ENODATA);
+
+		clock_gettime(CLOCK_REALTIME, &user_rx);
+		calc_and_print_stats(kernel_tx, kernel_rx, user_tx, user_rx,
+				     ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id);
 	}
 
 	close(soc);
