@@ -53,6 +53,9 @@
 		__LINE__, __func__, ##args);		\
 })
 
+/* Comment out this line to deactivate Hardware timestamps */
+#define HARDWARE_TIMESTAMP
+
 static inline struct timespec
 timespec_sub(const struct timespec a, const struct timespec b)
 {
@@ -270,17 +273,39 @@ int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 	return -1;
 }
 
-int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
+bool is_timestamp_zero(struct timespec ts)
+{
+	return !(ts.tv_sec || ts.tv_nsec);
+}
+
+enum timestamp_type {
+	NONE = 0x00,
+	SW = 0x01,
+	HW = 0x02
+};
+
+enum timestamp_type get_timestamp_type(struct timespec *sw_ts, struct timespec *hw_ts)
+{
+	enum timestamp_type type = NONE;
+
+	if (!is_timestamp_zero(*sw_ts))
+		type |= SW;
+	if (!is_timestamp_zero(*hw_ts))
+		type |= HW;
+
+
+	return type;
+}
+
+enum timestamp_type get_tx_timestamp(int soc, struct msghdr *msg,
+				     struct timespec *sw_ts, struct timespec *hw_ts)
 {
 	struct cmsghdr *cmsg;
-	static bool warn_once = false;
-	int ret;
+	int i, ret;
 
-	ret = recvmsg(soc, msg, MSG_ERRQUEUE);
+	ret = recvmsg(soc, msg, MSG_ERRQUEUE | 0);
 	if (ret <= 0) {
-		if (!warn_once)
-			perror("recvmsg");
-		warn_once = true;
+		perror("get_tx_timestamp:recvmsg");
 		return ret;
 	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
@@ -297,9 +322,15 @@ int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		switch (cmsg->cmsg_type) {
 		case SCM_TIMESTAMPING:
 			tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
-			debug(1, "SCM_TIMESTAMPING: tss->ts[0]: %lu.%lu\n",
-			      tss->ts[0].tv_sec, tss->ts[0].tv_nsec);
-			*tspec = tss->ts[0];
+			for (i = 0;
+			     i < (int)(cmsg->cmsg_len / sizeof(*tss->ts));
+			     i++)
+				debug(1, "SCM_TIMESTAMPING: tss->ts[%d]: %lu.%lu\n",
+				      i, tss->ts[i].tv_sec, tss->ts[i].tv_nsec);
+			if (!is_timestamp_zero(tss->ts[0]))
+				*sw_ts = tss->ts[0];
+			if (!is_timestamp_zero(tss->ts[2]))
+				*hw_ts = tss->ts[2];
 			break;
 
 		case PACKET_TX_TIMESTAMP:
@@ -321,25 +352,28 @@ int get_tx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		}
 	}
 
-	return 1;
+	return get_timestamp_type(sw_ts, hw_ts);
 }
 
-int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
+enum timestamp_type get_rx_timestamp(int soc, struct msghdr *msg,
+				     struct timespec *sw_ts, struct timespec *hw_ts)
 {
 	struct cmsghdr *cmsg;
-	static bool warn_once = false;
 	int i, ret;
 
 	ret = recvmsg(soc, msg, 0);
 	if (ret <= 0) {
-		if (!warn_once)
-			perror("recvmsg");
-		warn_once = true;
+		perror("get_rx_timestamp:recvmsg");
 		return ret;
 	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
 		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64,
 		      frame->can_id, frame->len, data_to_int(frame->data));
+	}
+
+	if (!(msg->msg_flags & MSG_DONTROUTE)) {
+		debug(0, "We are not the sender, ignore the frame");
+		return -ENODATA;
 	}
 
 	for (cmsg = CMSG_FIRSTHDR(msg);
@@ -353,18 +387,19 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 			tv = (struct timeval *)CMSG_DATA(cmsg);
 			debug(1, "SO_TIMESTAMP: stamp = %lu.%06lu\n",
 			      tv->tv_sec, tv->tv_usec);
-			tspec->tv_sec = tv->tv_sec;
-			tspec->tv_nsec = tv->tv_usec * 1000;
+			sw_ts->tv_sec = tv->tv_sec;
+			sw_ts->tv_nsec = tv->tv_usec * 1000;
 			break;
 
 		case SO_TIMESTAMPING:
 			stamp = (struct timespec *)CMSG_DATA(cmsg);
 			for (i = 0;
-			     i < (int)(cmsg->cmsg_len / sizeof(struct timespec));
+			     i < (int)(cmsg->cmsg_len / sizeof(*stamp));
 			     i++)
 				debug(1, "SO_TIMESTAMPING: stamp[%d] = %ld.%09ld\n",
 				      i, stamp[i].tv_sec, stamp[i].tv_nsec);
-			*tspec = stamp[0];
+			*sw_ts = stamp[0];
+			*hw_ts = stamp[2];
 			break;
 
 		default:
@@ -372,7 +407,57 @@ int get_rx_timestamp(int soc, struct msghdr *msg, struct timespec *tspec)
 		}
 	}
 
-	return 1;
+	return get_timestamp_type(sw_ts, hw_ts);
+}
+
+void print_stats(const char *timestamp_name, canid_t canid,
+		 struct timespec tx, struct timespec rx, struct timespec diff)
+{
+	printf("[%s] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
+	       timestamp_name, canid,
+	       tx.tv_sec, tx.tv_nsec,
+	       rx.tv_sec, rx.tv_nsec,
+	       diff.tv_sec, diff.tv_nsec);
+
+}
+
+void calc_and_print_stats(struct timespec user_tx, struct timespec user_rx,
+			  struct timespec kernel_sw_tx, struct timespec kernel_sw_rx,
+			  struct timespec kernel_hw_tx, struct timespec kernel_hw_rx,
+			  int drop_cnt, canid_t canid)
+{
+	struct timespec kernel_sw_diff, kernel_hw_diff, user_diff;
+	struct timespec user_to_kernel_tx, kernel_to_user_rx;
+	static double kernel_time_sum = 0, user_time_sum = 0;
+	static double user_to_kernel_tx_sum = 0, kernel_to_user_rx_sum = 0;
+
+	static int cnt = 0;
+
+	kernel_sw_diff = timespec_sub(kernel_sw_rx, kernel_sw_tx);
+	kernel_hw_diff = timespec_sub(kernel_hw_rx, kernel_hw_tx);
+	kernel_time_sum += kernel_sw_diff.tv_sec + kernel_sw_diff.tv_nsec / 1000000000.;
+	user_to_kernel_tx = timespec_sub(kernel_sw_tx, user_tx);
+	user_to_kernel_tx_sum += user_to_kernel_tx.tv_sec + user_to_kernel_tx.tv_nsec / 1000000000.;
+	kernel_to_user_rx = timespec_sub(user_rx, kernel_sw_rx);
+	kernel_to_user_rx_sum += kernel_to_user_rx.tv_sec + kernel_to_user_rx.tv_nsec / 1000000000.;
+	user_diff = timespec_sub(user_rx, user_tx);
+	user_time_sum += user_diff.tv_sec + user_diff.tv_nsec / 1000000000.;
+	cnt++;
+
+	print_stats("User", canid, user_tx, user_rx, user_diff);
+	print_stats("Kernel Software", canid, kernel_sw_tx, kernel_sw_rx, kernel_sw_diff);
+	if (!(is_timestamp_zero(kernel_hw_tx) || is_timestamp_zero(kernel_hw_rx)))
+		print_stats("Kernel Hardware", canid, kernel_hw_tx, kernel_hw_rx, kernel_hw_diff);
+	printf("User to kernel TX: %ld.%09ld, kernel to user RX:  %ld.%09ld\n",
+	       timespec_sub(kernel_sw_tx, user_tx).tv_sec,
+	       timespec_sub(kernel_sw_tx, user_tx).tv_nsec,
+	       timespec_sub(user_rx, kernel_sw_rx).tv_sec,
+	       timespec_sub(user_rx, kernel_sw_rx).tv_nsec);
+	printf("[Average] Total: %d, drop count: %d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
+	       cnt, drop_cnt,
+	       user_to_kernel_tx_sum / cnt,
+	       kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt,
+	       user_time_sum / cnt);
 }
 
 int main(int argc, char **argv)
@@ -391,20 +476,27 @@ int main(int argc, char **argv)
 				3 * sizeof(struct timespec) +
 				sizeof(__u32))];
 	const int recv_own_msg = 1;
-	const int timestamping_flags = SOF_TIMESTAMPING_SOFTWARE |
-				       SOF_TIMESTAMPING_TX_SOFTWARE |
-				       SOF_TIMESTAMPING_RX_SOFTWARE |
-				       SOF_TIMESTAMPING_RAW_HARDWARE;
+	const int timestamping_flags_sw = SOF_TIMESTAMPING_SOFTWARE |
+					  SOF_TIMESTAMPING_TX_SOFTWARE |
+					  SOF_TIMESTAMPING_RX_SOFTWARE;
+
+#ifdef HARDWARE_TIMESTAMP
+	const int timestamping_flags_hw = SOF_TIMESTAMPING_TX_HARDWARE |
+					  SOF_TIMESTAMPING_RX_HARDWARE |
+					  SOF_TIMESTAMPING_RAW_HARDWARE |
+					  SOF_TIMESTAMPING_OPT_TX_SWHW;
+
+	const int timestamping_flags = timestamping_flags_sw | timestamping_flags_hw;
+#else
+	const int timestamping_flags = timestamping_flags_sw;
+#endif
 
 	struct canfd_frame frame;
 	int can_id = 0 /* | CAN_EFF_FLAG */;
 
-	struct timespec kernel_tx, kernel_rx, kernel_diff;
-	struct timespec user_tx, user_rx, user_diff;
-	struct timespec user_to_kernel_tx, kernel_to_user_rx;
-	int cnt = 0;
-	double kernel_time_sum = 0, user_time_sum = 0;
-	double user_to_kernel_tx_sum = 0, kernel_to_user_rx_sum = 0;
+	struct timespec kernel_sw_tx, kernel_sw_rx;
+	struct timespec kernel_hw_tx, kernel_hw_rx;
+	struct timespec user_tx, user_rx;
 
 	if (argc != 2)
 		ifname = default_ifname;
@@ -422,7 +514,6 @@ int main(int argc, char **argv)
 
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
-	fcntl(soc, F_SETFL, O_NONBLOCK);
 
 	/* try to switch the socket into CAN FD mode */
 	setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &canfd_on, sizeof(canfd_on));
@@ -450,7 +541,9 @@ int main(int argc, char **argv)
 	msg.msg_control = &ctrlmsg;
 
 	while (true) {
-		static bool got_tx_timestamp = false;
+		static int drop_cnt = 0;
+		enum timestamp_type tx_type = NONE, rx_type = NONE;
+		int ret;
 
 		/* these settings may be modified by recvmsg() */
 		iov.iov_len = sizeof(frame);
@@ -458,47 +551,45 @@ int main(int argc, char **argv)
 		msg.msg_controllen = sizeof(ctrlmsg);
 		msg.msg_flags = 0;
 
-		if (!got_tx_timestamp) {
-			if (get_tx_timestamp(soc, &msg, &kernel_tx) == 1) {
-				got_tx_timestamp = true;
-				continue;
-			} else {
-				usleep(100000);
-				clock_gettime(CLOCK_REALTIME, &user_tx);
-				send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
-			}
-		} else if (get_rx_timestamp(soc, &msg, &kernel_rx) == 1) {
-			got_tx_timestamp = false;
-			clock_gettime(CLOCK_REALTIME, &user_rx);
-			kernel_diff = timespec_sub(kernel_rx, kernel_tx);
-			kernel_time_sum += kernel_diff.tv_sec + kernel_diff.tv_nsec / 1000000000.;
-			user_to_kernel_tx = timespec_sub(kernel_tx, user_tx);
-			user_to_kernel_tx_sum += user_to_kernel_tx.tv_sec + user_to_kernel_tx.tv_nsec / 1000000000.;
-			kernel_to_user_rx = timespec_sub(user_rx, kernel_rx);
-			kernel_to_user_rx_sum += kernel_to_user_rx.tv_sec + kernel_to_user_rx.tv_nsec / 1000000000.;
-			user_diff = timespec_sub(user_rx, user_tx);
-			user_time_sum += user_diff.tv_sec + user_diff.tv_nsec / 1000000000.;
-			cnt++;
-			printf("[User] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
-			       ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id,
-			       user_tx.tv_sec, user_tx.tv_nsec,
-			       user_rx.tv_sec, user_rx.tv_nsec,
-			       user_diff.tv_sec, user_diff.tv_nsec);
-			printf("[Kernel] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
-			       ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id,
-			       kernel_tx.tv_sec, kernel_tx.tv_nsec,
-			       kernel_rx.tv_sec, kernel_rx.tv_nsec,
-			       kernel_diff.tv_sec, kernel_diff.tv_nsec);
-			printf("User to kernel TX: %ld.%09ld, kernel to user RX:  %ld.%09ld\n",
-			       timespec_sub(kernel_tx, user_tx).tv_sec,
-			       timespec_sub(kernel_tx, user_tx).tv_nsec,
-			       timespec_sub(user_rx, kernel_rx).tv_sec,
-			       timespec_sub(user_rx, kernel_rx).tv_nsec);
-			printf("[Average] Total: %d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
-			       cnt, user_to_kernel_tx_sum / cnt,
-			       kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt,
-			       user_time_sum / cnt);
+		/* send new frame */
+		usleep(100000);
+		clock_gettime(CLOCK_REALTIME, &user_tx);
+		send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
+
+		/* Reading from the error queue is always a
+		   non-blocking operation. c.f.:
+		   https://docs.kernel.org/networking/timestamping.html#blocking-read
+		   Read first from the "normal" queue to leave time
+		   for the error queue to be ready.*/
+		rx_type |= get_rx_timestamp(soc, &msg, &kernel_sw_rx, &kernel_hw_rx);
+
+		/* Empirical tests show that the error queue is always
+		   ready after the "normal" one. This while loop is
+		   just a failsafe.
+		   Yet, TODO: use poll() or select() instead of this
+		   dirty while loop. */
+		while ((ret = get_tx_timestamp(soc, &msg, &kernel_sw_tx, &kernel_hw_tx)) < 0);
+		tx_type |= ret;
+
+		if (timestamping_flags & SOF_TIMESTAMPING_OPT_TX_SWHW) {
+			/* Need to unqueue the error queue twice: once for
+			  software and once for hardware timesptamps */
+			while ((ret = get_tx_timestamp(soc, &msg, &kernel_sw_tx, &kernel_hw_tx)) < 0);
+			tx_type |= ret;
 		}
+
+		/* Assert that we got at least the software timestamp
+		   for TX and RX */
+		if (!(rx_type & tx_type & SW)) {
+			drop_cnt++;
+			continue;
+		}
+
+		clock_gettime(CLOCK_REALTIME, &user_rx);
+		calc_and_print_stats(user_tx, user_rx,
+				     kernel_sw_tx, kernel_sw_rx,
+				     kernel_hw_tx, kernel_hw_rx, drop_cnt,
+				     ((struct canfd_frame *)msg.msg_iov->iov_base)->can_id);
 	}
 
 	close(soc);
