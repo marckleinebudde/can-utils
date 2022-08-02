@@ -556,30 +556,38 @@ int main(int argc, char **argv)
 		clock_gettime(CLOCK_REALTIME, &user_tx);
 		send_canfd_frame_str(soc, can_id++, "", CANFD_BRS);
 
-		/* Reading from the error queue is always a
-		   non-blocking operation. c.f.:
-		   https://docs.kernel.org/networking/timestamping.html#blocking-read
-		   Read first from the "normal" queue to leave time
-		   for the error queue to be ready.*/
+		/*
+		 * Reading from the error queue is always a
+		 * non-blocking operation. c.f.:
+		 * https://docs.kernel.org/networking/timestamping.html#blocking-read
+		 * Read first from the "normal" queue to leave time
+		 * for the error queue to be ready
+		 */
 		rx_type |= get_rx_timestamp(soc, &msg, &kernel_sw_rx, &kernel_hw_rx);
 
-		/* Empirical tests show that the error queue is always
-		   ready after the "normal" one. This while loop is
-		   just a failsafe.
-		   Yet, TODO: use poll() or select() instead of this
-		   dirty while loop. */
+		/*
+		 * Empirical tests show that the error queue is always
+		 * ready after the "normal" one. This while loop is
+		 * just a failsafe.
+		 * Yet, TODO: use poll() or select() instead of this
+		 * dirty while loop.
+		 */
 		while ((ret = get_tx_timestamp(soc, &msg, &kernel_sw_tx, &kernel_hw_tx)) < 0);
 		tx_type |= ret;
 
 		if (timestamping_flags & SOF_TIMESTAMPING_OPT_TX_SWHW) {
-			/* Need to unqueue the error queue twice: once for
-			  software and once for hardware timesptamps */
+			/*
+			 * Need to unqueue the error queue twice: once for
+			 * software and once for hardware timesptamps
+			 */
 			while ((ret = get_tx_timestamp(soc, &msg, &kernel_sw_tx, &kernel_hw_tx)) < 0);
 			tx_type |= ret;
 		}
 
-		/* Assert that we got at least the software timestamp
-		   for TX and RX */
+		/*
+		 * Assert that we got at least the software timestamp
+		 * for TX and RX
+		 */
 		if (!(rx_type & tx_type & SW)) {
 			drop_cnt++;
 			continue;
