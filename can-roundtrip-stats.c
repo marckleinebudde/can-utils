@@ -257,7 +257,7 @@ int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 				error("This portion of code should not be reached.\n");
 
 			debug(1, "Receive: %03X [%d] ",
-			       frame->can_id, frame->len);
+			      frame->can_id, frame->len);
 			for (i = 0; i < frame->len; i++)
 				debug_no_header(1, "%02X", frame->data[i]);
 			debug_no_header(1, ".\n");
@@ -477,14 +477,14 @@ int main(int argc, char **argv)
 				sizeof(__u32))];
 	const int recv_own_msg = 1;
 	const int timestamping_flags_sw = SOF_TIMESTAMPING_SOFTWARE |
-					  SOF_TIMESTAMPING_TX_SOFTWARE |
-					  SOF_TIMESTAMPING_RX_SOFTWARE;
+		SOF_TIMESTAMPING_TX_SOFTWARE |
+		SOF_TIMESTAMPING_RX_SOFTWARE;
 
 #ifdef HARDWARE_TIMESTAMP
 	const int timestamping_flags_hw = SOF_TIMESTAMPING_TX_HARDWARE |
-					  SOF_TIMESTAMPING_RX_HARDWARE |
-					  SOF_TIMESTAMPING_RAW_HARDWARE |
-					  SOF_TIMESTAMPING_OPT_TX_SWHW;
+		SOF_TIMESTAMPING_RX_HARDWARE |
+		SOF_TIMESTAMPING_RAW_HARDWARE |
+		SOF_TIMESTAMPING_OPT_TX_SWHW;
 
 	const int timestamping_flags = timestamping_flags_sw | timestamping_flags_hw;
 #else
@@ -503,9 +503,9 @@ int main(int argc, char **argv)
 	else
 		ifname = argv[1];
 
-	if((soc = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-			perror("Error while opening CAN socket");
-			exit(EXIT_FAILURE);
+	if ((soc = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
+		perror("Error while opening CAN socket");
+		exit(EXIT_FAILURE);
 	}
 
 	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
