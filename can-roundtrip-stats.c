@@ -494,8 +494,8 @@ int main(int argc, char **argv)
 	struct canfd_frame frame;
 	int can_id = 0 /* | CAN_EFF_FLAG */;
 
-	struct timespec kernel_sw_tx, kernel_sw_rx;
-	struct timespec kernel_hw_tx, kernel_hw_rx;
+	struct timespec kernel_sw_tx = { }, kernel_sw_rx = { };
+	struct timespec kernel_hw_tx = { }, kernel_hw_rx = { };
 	struct timespec user_tx, user_rx;
 
 	if (argc != 2)
