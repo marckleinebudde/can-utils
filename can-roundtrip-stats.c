@@ -194,7 +194,7 @@ static void send_can_frame(int soc, int can_id, size_t len, uint64_t data)
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
 
-	debug(1, "Send: %03X [%d] %0*zX.\n",
+	debug(1, "Send: %03X [%d] %0*" PRIX64 ".\n",
 	      frame.can_id, frame.can_dlc, frame.can_dlc * 2, data_to_int(frame.data));
 }
 
@@ -212,7 +212,7 @@ static void send_can_frame_str(int soc, int can_id, char *data)
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
 
-	debug(1, "Send: %03X [%d] %0*zX.\n",
+	debug(1, "Send: %03X [%d] %0*" PRIX64 ".\n",
 	      frame.can_id, frame.can_dlc, frame.can_dlc * 2,
 	      data_to_int(frame.data));
 }
@@ -231,7 +231,7 @@ static void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
 	else
 		debug(2, "Wrote %zd bytes.\n", sentbytes);
 
-	debug(1, "Send: %03X [%d] %0*zX.\n",
+	debug(1, "Send: %03X [%d] %0*" PRIX64 ".\n",
 	      frame.can_id, frame.len, frame.len * 2,
 	      data_to_int(frame.data));
 }
