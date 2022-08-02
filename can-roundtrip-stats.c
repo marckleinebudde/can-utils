@@ -252,7 +252,7 @@ static int read_can_frame(int soc, struct can_frame *frame, int ms_timeout)
 		if (FD_ISSET(soc, &readSet)) {
 			int i;
 
-			recvbytes = read(soc, frame, sizeof(struct canfd_frame));
+			recvbytes = read(soc, frame, sizeof(*frame));
 			if (!recvbytes)
 				error("This portion of code should not be reached.\n");
 
