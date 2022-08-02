@@ -309,7 +309,7 @@ static enum timestamp_type get_tx_timestamp(int soc, struct msghdr *msg,
 		return ret;
 	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
-		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64,
+		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64 "\n",
 		      frame->can_id, frame->len, data_to_int(frame->data));
 	}
 
@@ -367,7 +367,7 @@ static enum timestamp_type get_rx_timestamp(int soc, struct msghdr *msg,
 		return ret;
 	} else {
 		struct canfd_frame *frame = msg->msg_iov->iov_base;
-		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64,
+		debug(1, "Receive (errqueue): %03X [%d], data: %" PRIu64 "\n",
 		      frame->can_id, frame->len, data_to_int(frame->data));
 	}
 
