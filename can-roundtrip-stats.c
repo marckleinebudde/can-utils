@@ -413,7 +413,7 @@ static enum timestamp_type get_rx_timestamp(int soc, struct msghdr *msg,
 static void print_stats(const char *timestamp_name, canid_t canid,
 			struct timespec tx, struct timespec rx, struct timespec diff)
 {
-	printf("[%s] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
+	printf("[%s] ID: 0x%03x, TX: %10ld.%09ld, RX: %10ld.%09ld, diff: %ld.%09ld\n",
 	       timestamp_name, canid,
 	       tx.tv_sec, tx.tv_nsec,
 	       rx.tv_sec, rx.tv_nsec,
@@ -444,16 +444,16 @@ static void calc_and_print_stats(struct timespec user_tx, struct timespec user_r
 	user_time_sum += user_diff.tv_sec + user_diff.tv_nsec / 1000000000.;
 	cnt++;
 
-	print_stats("User", canid, user_tx, user_rx, user_diff);
+	print_stats("User           ", canid, user_tx, user_rx, user_diff);
 	print_stats("Kernel Software", canid, kernel_sw_tx, kernel_sw_rx, kernel_sw_diff);
 	if (!(is_timestamp_zero(kernel_hw_tx) || is_timestamp_zero(kernel_hw_rx)))
 		print_stats("Kernel Hardware", canid, kernel_hw_tx, kernel_hw_rx, kernel_hw_diff);
-	printf("User to kernel TX: %ld.%09ld, kernel to user RX:  %ld.%09ld\n",
+	printf("User to kernel TX: %ld.%09ld, kernel to user RX: %ld.%09ld\n",
 	       timespec_sub(kernel_sw_tx, user_tx).tv_sec,
 	       timespec_sub(kernel_sw_tx, user_tx).tv_nsec,
 	       timespec_sub(user_rx, kernel_sw_rx).tv_sec,
 	       timespec_sub(user_rx, kernel_sw_rx).tv_nsec);
-	printf("[Average] Total: %d, drop count: %d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
+	printf("[Average] Total: %4d, drop count: %3d, user to kernel (tx): %fs, kernel round trip: %fs, kernel to user (rx): %fs, user round trip: %fs\n\n",
 	       cnt, drop_cnt,
 	       user_to_kernel_tx_sum / cnt,
 	       kernel_time_sum / cnt, kernel_to_user_rx_sum / cnt,
