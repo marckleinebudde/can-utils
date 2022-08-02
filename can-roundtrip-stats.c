@@ -74,7 +74,7 @@ timespec_sub(const struct timespec a, const struct timespec b)
 }
 
 /* Convert ascii hexadecimal value to int. */
-int nibble_to_int(char hex)
+static int nibble_to_int(char hex)
 {
 	if (!isxdigit(hex)) {
 		error("Expected ascii hexadecimal value but got %c (0x%x).\n", hex, hex);
@@ -107,7 +107,7 @@ int nibble_to_int(char hex)
 }
 
 /* Convert the first two hexadecimal charater of the string to an int. */
-uint8_t byte_to_int(char *hex)
+static uint8_t byte_to_int(char *hex)
 {
 	uint8_t res;
 
@@ -119,7 +119,7 @@ uint8_t byte_to_int(char *hex)
 }
 
 /* Convert the 64 bits (8 bytes) payload into an integer. */
-uint64_t data_to_int(uint8_t *data)
+static uint64_t data_to_int(uint8_t *data)
 {
 	uint64_t res;
 
@@ -135,7 +135,7 @@ uint64_t data_to_int(uint8_t *data)
 	return res;
 }
 
-void make_can_frame(struct can_frame *frame, int can_id, char *data)
+static void make_can_frame(struct can_frame *frame, int can_id, char *data)
 {
 	size_t data_length;
 	size_t can_dlc;
@@ -156,7 +156,7 @@ void make_can_frame(struct can_frame *frame, int can_id, char *data)
 		frame->data[i] = byte_to_int(data + 2 * i);
 }
 
-void make_canfd_frame(struct canfd_frame *frame, int can_id, char *data, uint8_t flags)
+static void make_canfd_frame(struct canfd_frame *frame, int can_id, char *data, uint8_t flags)
 {
 	size_t data_length;
 	size_t can_len;
@@ -178,7 +178,7 @@ void make_canfd_frame(struct canfd_frame *frame, int can_id, char *data, uint8_t
 		frame->data[i] = byte_to_int(data + 2 * i);
 }
 
-void send_can_frame(int soc, int can_id, size_t len, uint64_t data)
+static void send_can_frame(int soc, int can_id, size_t len, uint64_t data)
 {
 	struct can_frame frame;
 	ssize_t sentbytes;
@@ -198,7 +198,7 @@ void send_can_frame(int soc, int can_id, size_t len, uint64_t data)
 	      frame.can_id, frame.can_dlc, frame.can_dlc * 2, data_to_int(frame.data));
 }
 
-void send_can_frame_str(int soc, int can_id, char *data)
+static void send_can_frame_str(int soc, int can_id, char *data)
 {
 	struct can_frame frame;
 	ssize_t sentbytes;
@@ -217,7 +217,7 @@ void send_can_frame_str(int soc, int can_id, char *data)
 	      data_to_int(frame.data));
 }
 
-void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
+static void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
 {
 	struct canfd_frame frame;
 	ssize_t sentbytes;
@@ -236,7 +236,7 @@ void send_canfd_frame_str(int soc, int can_id, char *data, uint8_t flags)
 	      data_to_int(frame.data));
 }
 
-int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
+static int read_can_frame(int soc, struct can_frame *frame, int ms_timeout)
 {
 	int recvbytes = 0;
 	fd_set readSet;
@@ -273,7 +273,7 @@ int read_can_frame(int soc, struct canfd_frame *frame, int ms_timeout)
 	return -1;
 }
 
-bool is_timestamp_zero(struct timespec ts)
+static bool is_timestamp_zero(struct timespec ts)
 {
 	return !(ts.tv_sec || ts.tv_nsec);
 }
@@ -284,7 +284,7 @@ enum timestamp_type {
 	HW = 0x02
 };
 
-enum timestamp_type get_timestamp_type(struct timespec *sw_ts, struct timespec *hw_ts)
+static enum timestamp_type get_timestamp_type(struct timespec *sw_ts, struct timespec *hw_ts)
 {
 	enum timestamp_type type = NONE;
 
@@ -297,8 +297,8 @@ enum timestamp_type get_timestamp_type(struct timespec *sw_ts, struct timespec *
 	return type;
 }
 
-enum timestamp_type get_tx_timestamp(int soc, struct msghdr *msg,
-				     struct timespec *sw_ts, struct timespec *hw_ts)
+static enum timestamp_type get_tx_timestamp(int soc, struct msghdr *msg,
+					    struct timespec *sw_ts, struct timespec *hw_ts)
 {
 	struct cmsghdr *cmsg;
 	int i, ret;
@@ -355,8 +355,8 @@ enum timestamp_type get_tx_timestamp(int soc, struct msghdr *msg,
 	return get_timestamp_type(sw_ts, hw_ts);
 }
 
-enum timestamp_type get_rx_timestamp(int soc, struct msghdr *msg,
-				     struct timespec *sw_ts, struct timespec *hw_ts)
+static enum timestamp_type get_rx_timestamp(int soc, struct msghdr *msg,
+					    struct timespec *sw_ts, struct timespec *hw_ts)
 {
 	struct cmsghdr *cmsg;
 	int i, ret;
@@ -410,8 +410,8 @@ enum timestamp_type get_rx_timestamp(int soc, struct msghdr *msg,
 	return get_timestamp_type(sw_ts, hw_ts);
 }
 
-void print_stats(const char *timestamp_name, canid_t canid,
-		 struct timespec tx, struct timespec rx, struct timespec diff)
+static void print_stats(const char *timestamp_name, canid_t canid,
+			struct timespec tx, struct timespec rx, struct timespec diff)
 {
 	printf("[%s] ID: 0x%x, TX: %ld.%09ld, RX: %ld.%09ld, diff: %ld.%09ld\n",
 	       timestamp_name, canid,
@@ -421,10 +421,10 @@ void print_stats(const char *timestamp_name, canid_t canid,
 
 }
 
-void calc_and_print_stats(struct timespec user_tx, struct timespec user_rx,
-			  struct timespec kernel_sw_tx, struct timespec kernel_sw_rx,
-			  struct timespec kernel_hw_tx, struct timespec kernel_hw_rx,
-			  int drop_cnt, canid_t canid)
+static void calc_and_print_stats(struct timespec user_tx, struct timespec user_rx,
+				 struct timespec kernel_sw_tx, struct timespec kernel_sw_rx,
+				 struct timespec kernel_hw_tx, struct timespec kernel_hw_rx,
+				 int drop_cnt, canid_t canid)
 {
 	struct timespec kernel_sw_diff, kernel_hw_diff, user_diff;
 	struct timespec user_to_kernel_tx, kernel_to_user_rx;
