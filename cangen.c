@@ -294,6 +294,7 @@ static int do_send_one(int fd, void *buf, size_t len, int timeout)
 		.msg_iovlen = 1,
 	};
 	ssize_t nbytes;
+	int flags = 0;
 	int ret;
 
 	if (use_so_txtime) {
@@ -311,17 +312,19 @@ static int do_send_one(int fd, void *buf, size_t len, int timeout)
 		cm->cmsg_type = SCM_TXTIME;
 		cm->cmsg_len = CMSG_LEN(sizeof(tdeliver));
 		memcpy(CMSG_DATA(cm), &tdeliver, sizeof(tdeliver));
+
+		//flags |= MSG_DONTWAIT;
 	}
 
  resend:
-	nbytes = sendmsg(fd, &msg, 0);
+	nbytes = sendmsg(fd, &msg, flags);
 	if (nbytes < 0) {
 		ret = -errno;
-		if (ret != -ENOBUFS) {
+		if (!(ret == -EAGAIN || ret == -ENOBUFS)) {
 			perror("write");
 			return ret;
 		}
-		if (!ignore_enobufs && !timeout) {
+		if (ret == -ENOBUFS && !ignore_enobufs && !timeout) {
 			perror("write");
 			return ret;
 		}
