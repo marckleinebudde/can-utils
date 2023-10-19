@@ -106,7 +106,7 @@ struct if_info { /* bundled information per open socket */
 static struct if_info sock_info[MAXSOCK];
 
 static char *progname;
-static char devname[MAXIFNAMES][IFNAMSIZ+1];
+static char devname[MAXIFNAMES][IFNAMSIZ + 1];
 static int dindex[MAXIFNAMES];
 static int max_devname_len; /* to prevent frazzled device name output */
 static const int canfd_on = 1;
@@ -229,25 +229,23 @@ static inline void sprint_timestamp(const char timestamp, const struct timeval *
 		sprintf(ts_buffer, "(%010lu.%06lu) ", tv->tv_sec, tv->tv_usec);
 		break;
 
-	case 'A': /* absolute with date */
-	{
+	case 'A': { /* absolute with date */
 		struct tm tm;
 		char timestring[25];
 
 		tm = *localtime(&tv->tv_sec);
 		strftime(timestring, 24, "%Y-%m-%d %H:%M:%S", &tm);
 		sprintf(ts_buffer, "(%s.%06lu) ", timestring, tv->tv_usec);
+		break;
 	}
-	break;
 
 	case 'd': /* delta */
-	case 'z': /* starting with zero */
-	{
+	case 'z': { /* starting with zero */
 		struct timeval diff;
 
-		if (last_tv->tv_sec == 0)   /* first init */
+		if (last_tv->tv_sec == 0) /* first init */
 			*last_tv = *tv;
-		diff.tv_sec  = tv->tv_sec - last_tv->tv_sec;
+		diff.tv_sec = tv->tv_sec - last_tv->tv_sec;
 		diff.tv_usec = tv->tv_usec - last_tv->tv_usec;
 		if (diff.tv_usec < 0)
 			diff.tv_sec--, diff.tv_usec += 1000000;
@@ -257,8 +255,9 @@ static inline void sprint_timestamp(const char timestamp, const struct timeval *
 
 		if (timestamp == 'd')
 			*last_tv = *tv; /* update for delta calculation */
+
+		break;
 	}
-	break;
 
 	default: /* no timestamp output */
 		break;
@@ -474,8 +473,8 @@ int main(int argc, char **argv)
 	}
 
 	for (i = 0; i < currmax; i++) {
-		struct if_info* obj = &sock_info[i];
-		ptr = argv[optind+i];
+		struct if_info *obj = &sock_info[i];
+		ptr = argv[optind + i];
 		nptr = strchr(ptr, ',');
 
 		pr_debug("open %d '%s'.\n", i, ptr);
@@ -495,7 +494,7 @@ int main(int argc, char **argv)
 		obj->cmdlinename = ptr; /* save pointer to cmdline name of this socket */
 
 		if (nptr)
-			nbytes = nptr - ptr;  /* interface name is up the first ',' */
+			nbytes = nptr - ptr; /* interface name is up the first ',' */
 		else
 			nbytes = strlen(ptr); /* no ',' found => no filter definitions */
 
@@ -671,12 +670,12 @@ int main(int argc, char **argv)
 			localtime_r(&currtime, &now);
 
 			snprintf(fname, sizeof(fname), "candump-%04d-%02d-%02d_%02d%02d%02d.log",
-				now.tm_year + 1900,
-				now.tm_mon + 1,
-				now.tm_mday,
-				now.tm_hour,
-				now.tm_min,
-				now.tm_sec);
+				 now.tm_year + 1900,
+				 now.tm_mon + 1,
+				 now.tm_mday,
+				 now.tm_hour,
+				 now.tm_min,
+				 now.tm_sec);
 
 			logname = fname;
 		}
@@ -714,8 +713,8 @@ int main(int argc, char **argv)
 			continue;
 		}
 
-		for (i = 0; i < num_events; i++) {  /* check waiting CAN RAW sockets */
-			struct if_info* obj = events_pending[i].data.ptr;
+		for (i = 0; i < num_events; i++) { /* check waiting CAN RAW sockets */
+			struct if_info *obj = events_pending[i].data.ptr;
 			int idx;
 			char *extra_info = "";
 
@@ -818,8 +817,8 @@ int main(int argc, char **argv)
 				print_timestamp(logtimestamp, &tv, &last_tv);
 
 				printf("%*s %s%s\n",
-					max_devname_len, devname[idx], buf,
-					extra_info);
+				       max_devname_len, devname[idx], buf,
+				       extra_info);
 				goto out_fflush; /* no other output to stdout */
 			}
 
@@ -838,9 +837,9 @@ int main(int argc, char **argv)
 
 			if (extra_msg_info) {
 				if (msg.msg_flags & MSG_DONTROUTE)
-					printf ("  TX %s", extra_m_info[frame.flags & 3]);
+					printf("  TX %s", extra_m_info[frame.flags & 3]);
 				else
-					printf ("  RX %s", extra_m_info[frame.flags & 3]);
+					printf("  RX %s", extra_m_info[frame.flags & 3]);
 			}
 
 			printf("%s  ", (color == 1) ? col_off : "");
@@ -850,7 +849,7 @@ int main(int argc, char **argv)
 			printf("%s", (color > 1) ? col_off : "");
 			printf("\n");
 
- out_fflush:
+out_fflush:
 			fflush(stdout);
 		}
 	}
