@@ -700,6 +700,9 @@ int main(int argc, char **argv)
 	msg.msg_iovlen = 1;
 	msg.msg_control = &ctrlmsg;
 
+	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu\n", __func__,
+	       sizeof(time_t), sizeof(struct timeval), sizeof(struct __kernel_old_timeval), sizeof(struct __kernel_sock_timeval));
+
 	while (running) {
 		num_events = epoll_wait(fd_epoll, events_pending, currmax, timeout_ms);
 		if (num_events == -1) {
@@ -757,11 +760,14 @@ int main(int argc, char **argv)
 
 					tv.tv_sec = c_tv->tv_sec;
 					tv.tv_usec = c_tv->tv_usec;
+
+					printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld\n", SO_TIMESTAMP_OLD, tv.tv_sec, tv.tv_usec, c_tv->tv_sec, c_tv->tv_usec);
 				} else if (cmsg->cmsg_type == SO_TIMESTAMP_NEW) {
 					const struct __kernel_sock_timeval *c_stv = (struct __kernel_sock_timeval *)CMSG_DATA(cmsg);
 
 					tv.tv_sec = c_stv->tv_sec;
 					tv.tv_usec = c_stv->tv_usec;
+					printf("SO_TIMESTAMP_NEW=%u: tv=%ld.%06ld, c_tv=%lld.%06lld\n", SO_TIMESTAMP_OLD, tv.tv_sec, tv.tv_usec, c_stv->tv_sec, c_stv->tv_usec);
 				} else if (cmsg->cmsg_type == SO_TIMESTAMPING) {
 					struct timespec *stamp = (struct timespec *)CMSG_DATA(cmsg);
 
