@@ -64,6 +64,7 @@
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <linux/net_tstamp.h>
+#include <linux/time_types.h>
 
 #include "terminal.h"
 #include "lib.h"
@@ -751,8 +752,16 @@ int main(int argc, char **argv)
 			for (cmsg = CMSG_FIRSTHDR(&msg);
 			     cmsg && (cmsg->cmsg_level == SOL_SOCKET);
 			     cmsg = CMSG_NXTHDR(&msg,cmsg)) {
-				if (cmsg->cmsg_type == SO_TIMESTAMP) {
-					memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));
+				if (cmsg->cmsg_type == SO_TIMESTAMP_OLD) {
+					const struct __kernel_old_timeval *c_tv = (struct __kernel_old_timeval *)CMSG_DATA(cmsg);
+
+					tv.tv_sec = c_tv->tv_sec;
+					tv.tv_usec = c_tv->tv_usec;
+				} else if (cmsg->cmsg_type == SO_TIMESTAMP_NEW) {
+					const struct __kernel_sock_timeval *c_stv = (struct __kernel_sock_timeval *)CMSG_DATA(cmsg);
+
+					tv.tv_sec = c_stv->tv_sec;
+					tv.tv_usec = c_stv->tv_usec;
 				} else if (cmsg->cmsg_type == SO_TIMESTAMPING) {
 					struct timespec *stamp = (struct timespec *)CMSG_DATA(cmsg);
 
