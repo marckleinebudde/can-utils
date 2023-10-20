@@ -701,7 +701,7 @@ int main(int argc, char **argv)
 	msg.msg_iovlen = 1;
 	msg.msg_control = &ctrlmsg;
 
-	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu\n", __func__,
+	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu (memcpy)\n", __func__,
 	       sizeof(time_t), sizeof(struct timeval), sizeof(struct __kernel_old_timeval), sizeof(struct __kernel_sock_timeval));
 
 	while (running) {
@@ -761,27 +761,31 @@ int main(int argc, char **argv)
 			     cmsg && (cmsg->cmsg_level == SOL_SOCKET);
 			     cmsg = CMSG_NXTHDR(&msg,cmsg)) {
 				if (cmsg->cmsg_type == SO_TIMESTAMP_OLD) {
-					const struct __kernel_old_timeval *c_tv = (struct __kernel_old_timeval *)CMSG_DATA(cmsg);
+					struct __kernel_old_timeval c_tv;
 
-					tv.tv_sec = c_tv->tv_sec;
-					tv.tv_usec = c_tv->tv_usec;
+					memcpy(&c_tv, CMSG_DATA(cmsg), sizeof(c_tv));
 
-					if (sizeof(c_tv->tv_sec) == 4)
+					tv.tv_sec = c_tv.tv_sec;
+					tv.tv_usec = c_tv.tv_usec;
+
+					if (sizeof(c_tv.tv_sec) == 4)
 						printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
-						       tv.tv_sec, tv.tv_usec, c_tv->tv_sec, c_tv->tv_usec,
+						       tv.tv_sec, tv.tv_usec, c_tv.tv_sec, c_tv.tv_usec,
 						       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1));
 					else
 						printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
-						       tv.tv_sec, tv.tv_usec, c_tv->tv_sec, c_tv->tv_usec,
+						       tv.tv_sec, tv.tv_usec, c_tv.tv_sec, c_tv.tv_usec,
 						       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1),
 						       *((uint32_t *)CMSG_DATA(cmsg) + 2), *((uint32_t *)CMSG_DATA(cmsg) + 3));
 				} else if (cmsg->cmsg_type == SO_TIMESTAMP_NEW) {
-					const struct __kernel_sock_timeval *c_stv = (struct __kernel_sock_timeval *)CMSG_DATA(cmsg);
+					struct __kernel_sock_timeval c_stv;
 
-					tv.tv_sec = c_stv->tv_sec;
-					tv.tv_usec = c_stv->tv_usec;
+					memcpy(&c_stv, CMSG_DATA(cmsg), sizeof(c_stv));
+
+					tv.tv_sec = c_stv.tv_sec;
+					tv.tv_usec = c_stv.tv_usec;
 					printf("SO_TIMESTAMP_NEW=%u: tv=%ld.%06ld, c_tv=%lld.%06lld 0x%08x 0x%08x 0x%08x 0x%08x\n", SO_TIMESTAMP_NEW,
-					       tv.tv_sec, tv.tv_usec, c_stv->tv_sec, c_stv->tv_usec,
+					       tv.tv_sec, tv.tv_usec, c_stv.tv_sec, c_stv.tv_usec,
 					       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1),
 					       *((uint32_t *)CMSG_DATA(cmsg) + 2), *((uint32_t *)CMSG_DATA(cmsg) + 3));
 				} else if (cmsg->cmsg_type == SO_TIMESTAMPING) {
