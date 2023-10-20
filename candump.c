@@ -701,7 +701,7 @@ int main(int argc, char **argv)
 	msg.msg_iovlen = 1;
 	msg.msg_control = &ctrlmsg;
 
-	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu (memcpy/print)\n", __func__,
+	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu (memcpy/print/hack)\n", __func__,
 	       sizeof(time_t), sizeof(struct timeval), sizeof(struct __kernel_old_timeval), sizeof(struct __kernel_sock_timeval));
 
 	while (running) {
@@ -784,8 +784,8 @@ int main(int argc, char **argv)
 
 					memcpy(&c_stv, CMSG_DATA(cmsg), sizeof(c_stv));
 
-					tv.tv_sec = c_stv.tv_sec;
-					tv.tv_usec = c_stv.tv_usec;
+					tv.tv_sec = c_stv.tv_usec;
+					tv.tv_usec = c_stv.tv_sec;
 					printf("SO_TIMESTAMP_NEW=%u: tv=%ld.%06ld, c_tv=%lld.%06lld 0x%08x 0x%08x 0x%08x 0x%08x\n", SO_TIMESTAMP_NEW,
 					       tv.tv_sec, tv.tv_usec, c_stv.tv_sec, c_stv.tv_usec,
 					       *(ptr + 0), *(ptr + 1),
