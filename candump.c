@@ -701,7 +701,7 @@ int main(int argc, char **argv)
 	msg.msg_iovlen = 1;
 	msg.msg_control = &ctrlmsg;
 
-	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu (memcpy)\n", __func__,
+	printf("%s: sizeof(time_t)=%zu, sizeof(struct timeval)=%zu, sizeof(struct __kernel_old_timeval)=%zu, sizeof(struct __kernel_sock_timeval)=%zu (memcpy/print)\n", __func__,
 	       sizeof(time_t), sizeof(struct timeval), sizeof(struct __kernel_old_timeval), sizeof(struct __kernel_sock_timeval));
 
 	while (running) {
@@ -762,6 +762,7 @@ int main(int argc, char **argv)
 			     cmsg = CMSG_NXTHDR(&msg,cmsg)) {
 				if (cmsg->cmsg_type == SO_TIMESTAMP_OLD) {
 					struct __kernel_old_timeval c_tv;
+					const uint32_t *ptr = (uint32_t *)&c_tv;
 
 					memcpy(&c_tv, CMSG_DATA(cmsg), sizeof(c_tv));
 
@@ -771,14 +772,15 @@ int main(int argc, char **argv)
 					if (sizeof(c_tv.tv_sec) == 4)
 						printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
 						       tv.tv_sec, tv.tv_usec, c_tv.tv_sec, c_tv.tv_usec,
-						       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1));
+						       *(ptr + 0), *(ptr + 1));
 					else
 						printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
 						       tv.tv_sec, tv.tv_usec, c_tv.tv_sec, c_tv.tv_usec,
-						       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1),
-						       *((uint32_t *)CMSG_DATA(cmsg) + 2), *((uint32_t *)CMSG_DATA(cmsg) + 3));
+						       *(ptr + 0), *(ptr + 1),
+						       *(ptr + 2), *(ptr + 3));
 				} else if (cmsg->cmsg_type == SO_TIMESTAMP_NEW) {
 					struct __kernel_sock_timeval c_stv;
+					const uint32_t *ptr = (uint32_t *)&c_stv;
 
 					memcpy(&c_stv, CMSG_DATA(cmsg), sizeof(c_stv));
 
@@ -786,8 +788,8 @@ int main(int argc, char **argv)
 					tv.tv_usec = c_stv.tv_usec;
 					printf("SO_TIMESTAMP_NEW=%u: tv=%ld.%06ld, c_tv=%lld.%06lld 0x%08x 0x%08x 0x%08x 0x%08x\n", SO_TIMESTAMP_NEW,
 					       tv.tv_sec, tv.tv_usec, c_stv.tv_sec, c_stv.tv_usec,
-					       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1),
-					       *((uint32_t *)CMSG_DATA(cmsg) + 2), *((uint32_t *)CMSG_DATA(cmsg) + 3));
+					       *(ptr + 0), *(ptr + 1),
+					       *(ptr + 2), *(ptr + 3));
 				} else if (cmsg->cmsg_type == SO_TIMESTAMPING) {
 					struct timespec *stamp = (struct timespec *)CMSG_DATA(cmsg);
 
