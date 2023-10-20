@@ -761,9 +761,15 @@ int main(int argc, char **argv)
 					tv.tv_sec = c_tv->tv_sec;
 					tv.tv_usec = c_tv->tv_usec;
 
-					printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
-					       tv.tv_sec, tv.tv_usec, c_tv->tv_sec, c_tv->tv_usec,
-					       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1));
+					if (sizeof(c_tv->tv_sec) == 4)
+						printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
+						       tv.tv_sec, tv.tv_usec, c_tv->tv_sec, c_tv->tv_usec,
+						       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1));
+					else
+						printf("SO_TIMESTAMP_OLD=%u: tv=%ld.%06ld, c_tv=%ld.%06ld 0x%08x 0x%08x 0x%08x 0x%08x\n", SO_TIMESTAMP_OLD,
+						       tv.tv_sec, tv.tv_usec, c_tv->tv_sec, c_tv->tv_usec,
+						       *((uint32_t *)CMSG_DATA(cmsg) + 0), *((uint32_t *)CMSG_DATA(cmsg) + 1),
+						       *((uint32_t *)CMSG_DATA(cmsg) + 2), *((uint32_t *)CMSG_DATA(cmsg) + 3));
 				} else if (cmsg->cmsg_type == SO_TIMESTAMP_NEW) {
 					const struct __kernel_sock_timeval *c_stv = (struct __kernel_sock_timeval *)CMSG_DATA(cmsg);
 
