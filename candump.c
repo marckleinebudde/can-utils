@@ -57,6 +57,7 @@
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -728,7 +729,11 @@ int main(int argc, char **argv)
 			msg.msg_controllen = sizeof(ctrlmsg);
 			msg.msg_flags = 0;
 
+#if 0
 			nbytes = recvmsg(obj->s, &msg, 0);
+#else
+			nbytes = syscall(SYS_recvmsg, obj->s, &msg, 0);
+#endif
 			idx = idx2dindex(addr.can_ifindex, obj->s);
 
 			if (nbytes < 0) {
