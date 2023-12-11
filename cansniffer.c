@@ -72,19 +72,19 @@
 #define SETFDFNAME "sniffset_fd."
 #define FNAME_MAX_LEN 40
 
-#define ANYDEV   "any"
+#define ANYDEV "any"
 #define MAX_SLOTS 2048
 
-#define CANFD_OFF  0 /* set to OFF */
-#define CANFD_ON   1 /* set to ON */
+#define CANFD_OFF 0 /* set to OFF */
+#define CANFD_ON 1 /* set to ON */
 #define CANFD_AUTO 2 /* unspecified => check for first received frame */
 
 /* flags */
 
-#define ENABLE  1 /* by filter or user */
+#define ENABLE 1 /* by filter or user */
 #define DISPLAY 2 /* is on the screen */
-#define UPDATE  4 /* needs to be printed on the screen */
-#define CLRSCR  8 /* clear screen in next loop */
+#define UPDATE 4 /* needs to be printed on the screen */
+#define CLRSCR 8 /* clear screen in next loop */
 
 /* flags testing & setting */
 
@@ -97,13 +97,13 @@
 /* time defaults */
 
 #define TIMEOUT 500 /* in 10ms */
-#define HOLD    100 /* in 10ms */
-#define LOOP     20 /* in 10ms */
+#define HOLD 100 /* in 10ms */
+#define LOOP 20 /* in 10ms */
 
 #define ATTCOLOR ATTBOLD FGRED
 
-#define LDL " | "	/* long delimiter */
-#define SDL "|"		/* short delimiter for binary on 80 chars terminal */
+#define LDL " | " /* long delimiter */
+#define SDL "|" /* short delimiter for binary on 80 chars terminal */
 
 #define CC_SEP '#' /* interface name separator for Classical CAN */
 #define FD_SEP '*' /* interface name separator for CAN FD */
@@ -147,8 +147,8 @@ void print_snifline(int slot);
 int handle_keyb(void);
 int handle_frame(int fd, long currcms);
 int handle_timeo(long currcms);
-int writesettings(char* name);
-int readsettings(char* name);
+int writesettings(char *name);
+int readsettings(char *name);
 int sniftab_index(canid_t id);
 
 void switchvdl(char *delim)
@@ -161,15 +161,15 @@ void switchvdl(char *delim)
 
 int comp(const void *elem1, const void *elem2)
 {
-    unsigned long f = ((struct snif*)elem1)->current.can_id;
-    unsigned long s = ((struct snif*)elem2)->current.can_id;
+	unsigned long f = ((struct snif *)elem1)->current.can_id;
+	unsigned long s = ((struct snif *)elem2)->current.can_id;
 
-    if (f > s)
-	    return  1;
-    if (f < s)
-	    return -1;
+	if (f > s)
+		return 1;
+	if (f < s)
+		return -1;
 
-    return 0;
+	return 0;
 }
 
 void print_usage(char *prg)
@@ -263,7 +263,7 @@ int main(int argc, char **argv)
 	signal(SIGHUP, sigterm);
 	signal(SIGINT, sigterm);
 
-	for (i = 0; i < MAX_SLOTS ;i++) /* default: enable all slots */
+	for (i = 0; i < MAX_SLOTS; i++) /* default: enable all slots */
 		do_set(i, ENABLE);
 
 	while ((opt = getopt(argc, argv, "r:t:h:l:f:qeb8Bc?")) != -1) {
@@ -396,21 +396,21 @@ int main(int argc, char **argv)
 	printf("%s", CSR_HIDE); /* hide cursor */
 
 	while (running) {
-
 		FD_ZERO(&rdfs);
 		FD_SET(0, &rdfs);
 		FD_SET(s, &rdfs);
 
-		timeo.tv_sec  = 0;
+		timeo.tv_sec = 0;
 		timeo.tv_usec = 10000 * loop;
 
-		ret = select(s+1, &rdfs, NULL, NULL, &timeo);
+		ret = select(s + 1, &rdfs, NULL, NULL, &timeo);
 		if (ret < 0) {
 			//perror("select");
 			running = 0;
 			continue;
-		} else
+		} else {
 			ret = 0;
+		}
 
 		gettimeofday(&tv, NULL);
 		currcms = (tv.tv_sec - start_tv.tv_sec) * 100 + (tv.tv_usec / 10000);
@@ -441,7 +441,7 @@ void do_modify_sniftab(unsigned int value, unsigned int mask, char cmd)
 {
 	int i;
 
-	for (i = 0; i < idx ;i++) {
+	for (i = 0; i < idx; i++) {
 		if ((sniftab[i].current.can_id & mask) == (value & mask)) {
 			if (cmd == '+')
 				do_set(i, ENABLE);
@@ -453,7 +453,7 @@ void do_modify_sniftab(unsigned int value, unsigned int mask, char cmd)
 
 int handle_keyb(void)
 {
-	char cmd [25] = {0};
+	char cmd[25] = { 0 };
 	int i, clen;
 	unsigned int mask;
 	unsigned int value;
@@ -462,12 +462,11 @@ int handle_keyb(void)
 		return 1; /* ignore */
 
 	if (strlen(cmd) > 0)
-		cmd[strlen(cmd)-1] = 0; /* chop off trailing newline */
+		cmd[strlen(cmd) - 1] = 0; /* chop off trailing newline */
 
 	clen = strlen(&cmd[1]); /* content length behind command */
 
 	switch (cmd[0]) {
-
 	case '+':
 	case '-':
 		if (clen == 6) {
@@ -508,50 +507,50 @@ int handle_keyb(void)
 
 		break;
 
-	case 'a' : /* all SFF CAN IDs */
+	case 'a': /* all SFF CAN IDs */
 		value = 0;
 		mask = 0xFFFF800; /* cleared flags! */
 		do_modify_sniftab(value, mask, '+');
 		break;
 
-	case 'n' : /* none SFF CAN IDs */
+	case 'n': /* none SFF CAN IDs */
 		value = 0;
 		mask = 0xFFFF800; /* cleared flags! */
 		do_modify_sniftab(value, mask, '-');
 		break;
 
-	case 'A' : /* all EFF CAN IDs */
+	case 'A': /* all EFF CAN IDs */
 		value = CAN_EFF_FLAG;
 		mask = CAN_EFF_FLAG;
 		do_modify_sniftab(value, mask, '+');
 		break;
 
-	case 'N' : /* none EFF CAN IDs */
+	case 'N': /* none EFF CAN IDs */
 		value = CAN_EFF_FLAG;
 		mask = CAN_EFF_FLAG;
 		do_modify_sniftab(value, mask, '-');
 		break;
 
-	case 'w' :
+	case 'w':
 		if (writesettings(&cmd[1]))
 			return 0;
 		break;
 
-	case 'r' :
+	case 'r':
 		if (readsettings(&cmd[1]) < 0)
 			return 0;
 		break;
 
-	case 'q' :
+	case 'q':
 		running = 0;
 		break;
 
-	case '@' :
+	case '@':
 		/* toggle ASCII output */
 		print_ascii ^= 1;
 		break;
 
-	case 'B' :
+	case 'B':
 		binary_gap = 1;
 		switchvdl(LDL);
 		if (binary)
@@ -561,11 +560,11 @@ int handle_keyb(void)
 
 		break;
 
-	case '8' :
+	case '8':
 		binary8 = 1;
 		/* fallthrough */
 
-	case 'b' :
+	case 'b':
 		binary_gap = 0;
 		if (binary) {
 			binary = 0;
@@ -576,7 +575,7 @@ int handle_keyb(void)
 		}
 		break;
 
-	case 'c' :
+	case 'c':
 		if (color)
 			color = 0;
 		else
@@ -584,15 +583,15 @@ int handle_keyb(void)
 
 		break;
 
-	case ' ' :
+	case ' ':
 		clearscreen = 1;
 		break;
 
-	case '#' :
+	case '#':
 		notch = 1;
 		break;
 
-	case '*' :
+	case '*':
 		for (i = 0; i < idx; i++)
 			memset(&sniftab[i].notch.data, 0, max_dlen);
 		break;
@@ -662,11 +661,10 @@ int handle_frame(int fd, long currcms)
 		pos = idx++;
 		rx_changed = true;
 		run_qsort = true;
-	}
-	else {
+	} else {
 		if (cf.len == sniftab[pos].current.len)
 			for (i = 0; i < cf.len; i++) {
-				if (cf.data[i] != sniftab[pos].current.data[i] ) {
+				if (cf.data[i] != sniftab[pos].current.data[i]) {
 					rx_changed = true;
 					break;
 				}
@@ -687,7 +685,7 @@ int handle_frame(int fd, long currcms)
 		for (i = 0; i < max_dlen; i++)
 			sniftab[pos].marker.data[i] |= sniftab[pos].current.data[i] ^ sniftab[pos].last.data[i];
 
-		sniftab[pos].timeout = (timeout)?(currcms + timeout):0;
+		sniftab[pos].timeout = (timeout) ? (currcms + timeout) : 0;
 
 		if (is_clr(pos, DISPLAY))
 			clearscreen = 1; /* new entry -> new drawing */
@@ -733,29 +731,28 @@ int handle_timeo(long currcms)
 	frame_count %= 100;
 
 	for (i = 0; i < idx; i++) {
-		if is_set(i, ENABLE) {
-				if is_set(i, DISPLAY) {
-						if (is_set(i, UPDATE) || (force_redraw)) {
-							print_snifline(i);
-							sniftab[i].hold = currcms + hold;
-							do_clr(i, UPDATE);
-						}
-						else  if ((sniftab[i].hold) && (sniftab[i].hold < currcms)) {
-								memset(&sniftab[i].marker.data, 0, max_dlen);
-								print_snifline(i);
-								sniftab[i].hold = 0; /* disable update by hold */
-							}
-						else
-							printf("%s", CSR_DOWN); /* skip my line */
+		if (is_set(i, ENABLE)) {
+			if (is_set(i, DISPLAY)) {
+				if (is_set(i, UPDATE) || (force_redraw)) {
+					print_snifline(i);
+					sniftab[i].hold = currcms + hold;
+					do_clr(i, UPDATE);
+				} else if ((sniftab[i].hold) && (sniftab[i].hold < currcms)) {
+					memset(&sniftab[i].marker.data, 0, max_dlen);
+					print_snifline(i);
+					sniftab[i].hold = 0; /* disable update by hold */
+				} else {
+					printf("%s", CSR_DOWN); /* skip my line */
+				}
 
-						if (sniftab[i].timeout && sniftab[i].timeout < currcms) {
-							do_clr(i, DISPLAY);
-							do_clr(i, UPDATE);
-							clearscreen = 1; /* removed entry -> new drawing next time */
-						}
-					}
-				sniftab[i].last      = sniftab[i].current;
+				if (sniftab[i].timeout && sniftab[i].timeout < currcms) {
+					do_clr(i, DISPLAY);
+					do_clr(i, UPDATE);
+					clearscreen = 1; /* removed entry -> new drawing next time */
+				}
 			}
+			sniftab[i].last = sniftab[i].current;
+		}
 	}
 
 	return 1; /* ok */
@@ -763,11 +760,11 @@ int handle_timeo(long currcms)
 
 void print_snifline(int slot)
 {
-	long diffsec  = sniftab[slot].currstamp.tv_sec  - sniftab[slot].laststamp.tv_sec;
+	long diffsec = sniftab[slot].currstamp.tv_sec - sniftab[slot].laststamp.tv_sec;
 	long diffusec = sniftab[slot].currstamp.tv_usec - sniftab[slot].laststamp.tv_usec;
-	int dlc_diff  = sniftab[slot].last.len - sniftab[slot].current.len;
+	int dlc_diff = sniftab[slot].last.len - sniftab[slot].current.len;
 	canid_t cid = sniftab[slot].current.can_id;
-	int i,j;
+	int i, j;
 
 	if (diffusec < 0)
 		diffsec--, diffusec += 1000000;
@@ -779,27 +776,28 @@ void print_snifline(int slot)
 		diffsec = 99, diffusec = 999999;
 
 	if (cid & CAN_EFF_FLAG)
-		printf("%02ld%03ld%s%08X%s", diffsec, diffusec/1000, vdl, cid & CAN_EFF_MASK, vdl);
+		printf("%02ld%03ld%s%08X%s", diffsec, diffusec / 1000, vdl, cid & CAN_EFF_MASK, vdl);
 	else if (print_eff)
-		printf("%02ld%03ld%s---- %03X%s", diffsec, diffusec/1000, vdl, cid & CAN_SFF_MASK, vdl);
+		printf("%02ld%03ld%s---- %03X%s", diffsec, diffusec / 1000, vdl, cid & CAN_SFF_MASK, vdl);
 	else
-		printf("%02ld%03ld%s%03X%s", diffsec, diffusec/1000, ldl, cid & CAN_SFF_MASK, ldl);
+		printf("%02ld%03ld%s%03X%s", diffsec, diffusec / 1000, ldl, cid & CAN_SFF_MASK, ldl);
 
 	if (binary) {
 		for (i = 0; i < sniftab[slot].current.len; i++) {
-			for (j=7; j >= 0; j--) {
-				if ((color) && (sniftab[slot].marker.data[i] & 1<<j) &&
-				    (!(sniftab[slot].notch.data[i] & 1<<j)))
-					if (sniftab[slot].current.data[i] & 1<<j)
+			for (j = 7; j >= 0; j--) {
+				if (color &&(sniftab[slot].marker.data[i] & 1 << j) &&
+				    (!(sniftab[slot].notch.data[i] & 1 << j))) {
+					if (sniftab[slot].current.data[i] & 1 << j)
 						printf("%s1%s", ATTCOLOR, ATTRESET);
 					else
 						printf("%s0%s", ATTCOLOR, ATTRESET);
-				else
-					if (sniftab[slot].current.data[i] & 1<<j)
-						putchar('1');
-					else
-						putchar('0');
+				} else if (sniftab[slot].current.data[i] & 1 << j) {
+					putchar('1');
+				} else {
+					putchar('0');
+				}
 			}
+
 			if (binary_gap)
 				putchar(' ');
 		}
@@ -817,7 +815,7 @@ void print_snifline(int slot)
 	} else { /* not binary -> hex data and ASCII output */
 
 		for (i = 0; i < sniftab[slot].current.len; i++)
-			if ((color) && (sniftab[slot].marker.data[i] & ~sniftab[slot].notch.data[i]))
+			if (color && (sniftab[slot].marker.data[i] & ~sniftab[slot].notch.data[i]))
 				printf("%s%02X%s ", ATTCOLOR, sniftab[slot].current.data[i], ATTRESET);
 			else
 				printf("%02X ", sniftab[slot].current.data[i]);
@@ -830,7 +828,7 @@ void print_snifline(int slot)
 			for (i = 0; i < sniftab[slot].current.len; i++)
 				if ((sniftab[slot].current.data[i] > 0x1F) &&
 				    (sniftab[slot].current.data[i] < 0x7F))
-					if ((color) && (sniftab[slot].marker.data[i] & ~sniftab[slot].notch.data[i]))
+					if (color && (sniftab[slot].marker.data[i] & ~sniftab[slot].notch.data[i]))
 						printf("%s%c%s", ATTCOLOR, sniftab[slot].current.data[i], ATTRESET);
 					else
 						putchar(sniftab[slot].current.data[i]);
@@ -858,12 +856,12 @@ void print_snifline(int slot)
 	memset(&sniftab[slot].marker.data, 0, max_dlen);
 }
 
-int writesettings(char* name)
+int writesettings(char *name)
 {
 	int fd;
 	char fname[FNAME_MAX_LEN + 1];
-	int i,j;
-	char buf[13]= {0};
+	int i, j;
+	char buf[13] = { 0 };
 
 	if (canfd_mode == CANFD_OFF)
 		strcpy(fname, SETFNAME);
@@ -875,19 +873,19 @@ int writesettings(char* name)
 	}
 
 	strncat(fname, name, FNAME_MAX_LEN - strlen(fname));
-	fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+	fd = open(fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (fd <= 0) {
 		printf("unable to write setting file '%s'!\n", fname);
 		return 1;
 	}
 
-	for (i = 0; i < idx ;i++) {
-		sprintf(buf, "<%08X>%c.", sniftab[i].current.can_id, (is_set(i, ENABLE))?'1':'0');
+	for (i = 0; i < idx; i++) {
+		sprintf(buf, "<%08X>%c.", sniftab[i].current.can_id, (is_set(i, ENABLE)) ? '1' : '0');
 		if (write(fd, buf, 12) < 0) {
 			perror("write");
 			return 1;
 		}
-		for (j = 0; j < max_dlen ; j++) {
+		for (j = 0; j < max_dlen; j++) {
 			sprintf(buf, "%02X", sniftab[i].notch.data[j]);
 			if (write(fd, buf, 2) < 0) {
 				perror("write");
@@ -905,11 +903,11 @@ int writesettings(char* name)
 	return 0;
 }
 
-int readsettings(char* name)
+int readsettings(char *name)
 {
 	int fd;
 	char fname[FNAME_MAX_LEN + 1];
-	char buf[142] = {0};
+	char buf[142] = { 0 };
 	int entrylen;
 	int j;
 	bool done = false;
@@ -946,15 +944,13 @@ int readsettings(char* name)
 		else
 			do_clr(idx, ENABLE);
 
-		for (j = max_dlen - 1; j >= 0 ; j--) {
-			sniftab[idx].notch.data[j] =
-				(__u8) strtoul(&buf[2*j+12], NULL, 16) & 0xFF;
-			buf[2*j+12] = 0; /* cut off each time */
+		for (j = max_dlen - 1; j >= 0; j--) {
+			sniftab[idx].notch.data[j] = (__u8)strtoul(&buf[2 * j + 12], NULL, 16) & 0xFF;
+			buf[2 * j + 12] = 0; /* cut off each time */
 		}
 
 		if (++idx >= MAX_SLOTS)
 			break;
-
 	}
 	close(fd);
 	return idx;
