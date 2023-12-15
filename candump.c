@@ -46,6 +46,7 @@
 #include <errno.h>
 #include <libgen.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -113,7 +114,16 @@ static const int canfd_on = 1;
 
 #define MAXANI 4
 static const char anichar[MAXANI] = { '|', '/', '-', '\\' };
-static const char extra_m_info[4][4] = { "- -", "B -", "- E", "B E" };
+static const char extra_m_info[][4] = {
+	"- -",
+	"B -",
+	"- E",
+	"B E",
+	"- -",
+	"B -",
+	"- E",
+	"B E",
+};
 
 extern int optind, opterr, optopt;
 
@@ -282,16 +292,16 @@ int main(int argc, char **argv)
 	};
 	unsigned char timestamp = 0;
 	unsigned char logtimestamp = 'a';
-	unsigned char hwtimestamp = 0;
-	unsigned char down_causes_exit = 1;
-	unsigned char dropmonitor = 0;
-	unsigned char extra_msg_info = 0;
+	bool hwtimestamp = false;
+	bool down_causes_exit = true;
+	bool dropmonitor = false;
+	bool extra_msg_info = false;
 	unsigned char silent = SILENT_INI;
 	unsigned char silentani = 0;
 	unsigned char color = 0;
 	unsigned char view = 0;
-	unsigned char log = 0;
-	unsigned char logfrmt = 0;
+	bool log = false;
+	bool logfrmt = false;
 	int count = 0;
 	int rcvbuf_size = 0;
 	int opt, num_events;
@@ -344,7 +354,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 'H':
-			hwtimestamp = 1;
+			hwtimestamp = true;
 			break;
 
 		case 'c':
@@ -380,7 +390,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 'l':
-			log = 1;
+			log = true;
 			break;
 
 		case 'D':
@@ -388,20 +398,20 @@ int main(int argc, char **argv)
 			break;
 
 		case 'd':
-			dropmonitor = 1;
+			dropmonitor = true;
 			break;
 
 		case 'x':
-			extra_msg_info = 1;
+			extra_msg_info = true;
 			break;
 
 		case 'L':
-			logfrmt = 1;
+			logfrmt = true;
 			break;
 
 		case 'f':
 			logname = optarg;
-			log = 1;
+			log = true;
 			break;
 
 		case 'n':
@@ -447,16 +457,17 @@ int main(int argc, char **argv)
 
 	/* "-f -"  is equal to "-L" (print logfile format on stdout) */
 	if (log && logname && strcmp("-", logname) == 0) {
-		log = 0; /* no logging into a file */
-		logfrmt = 1; /* print logformat output to stdout */
+		log = false; /* no logging into a file */
+		logfrmt = true; /* print logformat output to stdout */
 	}
 
 	if (silent == SILENT_INI) {
 		if (log) {
 			fprintf(stderr, "Disabled standard output while logging.\n");
 			silent = SILENT_ON; /* disable output on stdout */
-		} else
+		} else {
 			silent = SILENT_OFF; /* default output */
+		}
 	}
 
 	currmax = argc - optind; /* find real number of CAN devices */
@@ -517,8 +528,9 @@ int main(int argc, char **argv)
 				exit(1);
 			}
 			addr.can_ifindex = ifr.ifr_ifindex;
-		} else
+		} else {
 			addr.can_ifindex = 0; /* any can interface */
+		}
 
 		if (nptr) {
 			/* found a ',' after the interface name => check for filters */
@@ -736,11 +748,11 @@ int main(int argc, char **argv)
 				return 1;
 			}
 
-			if ((size_t)nbytes == CAN_MTU)
+			if ((size_t)nbytes == CAN_MTU) {
 				maxdlen = CAN_MAX_DLEN;
-			else if ((size_t)nbytes == CANFD_MTU)
+			} else if ((size_t)nbytes == CANFD_MTU) {
 				maxdlen = CANFD_MAX_DLEN;
-			else {
+			} else {
 				fprintf(stderr, "read: incomplete CAN frame\n");
 				return 1;
 			}
