@@ -894,3 +894,66 @@ void timespec_add_ms(struct timespec *ts, uint64_t milliseconds)
 	ts->tv_sec += total_ns / 1000000000;
 	ts->tv_nsec = total_ns % 1000000000;
 }
+
+/**
+ * set_normalized_timespec - set timespec sec and nsec parts and normalize
+ *
+ * @ts:		pointer to timespec variable to be set
+ * @sec:	seconds to set
+ * @nsec:	nanoseconds to set
+ *
+ * Set seconds and nanoseconds field of a timespec variable and
+ * normalize to the timespec storage format
+ *
+ * Note: The tv_nsec part is always in the range of 0 <= tv_nsec < NSEC_PER_SEC.
+ * For negative values only the tv_sec field is negative !
+ */
+void set_normalized_timespec(struct timespec *ts, time_t sec, int64_t nsec)
+{
+	while (nsec >= NSEC_PER_SEC) {
+		nsec -= NSEC_PER_SEC;
+		++sec;
+	}
+	while (nsec < 0) {
+		nsec += NSEC_PER_SEC;
+		--sec;
+	}
+	ts->tv_sec = sec;
+	ts->tv_nsec = nsec;
+}
+
+/**
+ * ns_to_timespec - Convert nanoseconds to timespec64
+ * @nsec:       the nanoseconds value to be converted
+ *
+ * Return: the timespec representation of the nsec parameter.
+ */
+struct timespec ns_to_timespec(int64_t nsec)
+{
+	struct timespec ts = { 0, 0 };
+	uint32_t rem;
+
+	if (nsec > 0) {
+		ts.tv_sec = div_u64_rem(nsec, NSEC_PER_SEC, &rem);
+		ts.tv_nsec = rem;
+	} else if (nsec < 0) {
+		/*
+		 * With negative times, tv_sec points to the earlier
+		 * second, and tv_nsec counts the nanoseconds since
+		 * then, so tv_nsec is always a positive number.
+		 */
+		ts.tv_sec = -div_u64_rem(-nsec - 1, NSEC_PER_SEC, &rem) - 1;
+		ts.tv_nsec = NSEC_PER_SEC - rem - 1;
+	}
+
+	return ts;
+}
+
+struct timespec double_to_timespec(double s)
+{
+	struct timespec ts;
+
+	set_normalized_timespec(&ts, s, (s - (long)(s)) * NSEC_PER_SEC);
+
+	return ts;
+}

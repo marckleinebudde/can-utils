@@ -59,12 +59,38 @@ __attribute__((format (printf, 1, 2)))
 static inline int pr_debug(const char* fmt, ...) {return 0;}
 #endif
 
+#define MSEC_PER_SEC	1000L
+#define USEC_PER_MSEC	1000L
+#define NSEC_PER_USEC	1000L
+#define NSEC_PER_MSEC	1000000L
+#define USEC_PER_SEC	1000000L
+#define NSEC_PER_SEC	1000000000L
+#define PSEC_PER_SEC	1000000000000LL
+#define FSEC_PER_SEC	1000000000000000LL
+
 /* CAN CC/FD/XL frame union */
 typedef union {
 	struct can_frame cc;
 	struct canfd_frame fd;
 	struct canxl_frame xl;
 } cu_t;
+
+/**
+ * div_u64_rem - unsigned 64bit divide with 32bit divisor with remainder
+ * @dividend: unsigned 64bit dividend
+ * @divisor: unsigned 32bit divisor
+ * @remainder: pointer to unsigned 32bit remainder
+ *
+ * Return: sets ``*remainder``, then returns dividend / divisor
+ *
+ * This is commonly provided by 32bit archs to provide an optimized 64bit
+ * divide.
+ */
+static inline uint64_t div_u64_rem(uint64_t dividend, uint32_t divisor, uint32_t *remainder)
+{
+	*remainder = dividend % divisor;
+	return dividend / divisor;
+}
 
 /*
  * The buffer size for ASCII CAN frame string representations
@@ -245,6 +271,21 @@ int snprintf_can_error_frame(char *buf, size_t len, const struct canfd_frame *cf
  * Creates a CAN error frame output in user readable format.
  */
 
+static inline uint32_t
+__iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder)
+{
+	uint32_t ret = 0;
+
+	while (dividend >= divisor) {
+		dividend -= divisor;
+		ret++;
+	}
+
+	*remainder = dividend;
+
+	return ret;
+}
+
 /**
  * timespec_diff_ms - calculate timespec difference in milliseconds
  * @ts1: first timespec
@@ -260,5 +301,72 @@ int64_t timespec_diff_ms(struct timespec *ts1, struct timespec *ts2);
  * @milliseconds: milliseconds to add
  */
 void timespec_add_ms(struct timespec *ts, uint64_t milliseconds);
+
+void set_normalized_timespec(struct timespec *ts, time_t sec, int64_t nsec);
+struct timespec ns_to_timespec(int64_t nsec);
+struct timespec double_to_timespec(double s);
+
+/**
+ * timespec64_to_ns - Convert timespec64 to nanoseconds
+ * @ts:		pointer to the timespec64 variable to be converted
+ *
+ * Returns the scalar nanosecond representation of the timespec64
+ * parameter.
+ */
+static inline int64_t timespec_to_ns(const struct timespec *ts)
+{
+	return ((int64_t)ts->tv_sec * NSEC_PER_SEC) + ts->tv_nsec;
+}
+
+/*
+ * lhs < rhs:  return <0
+ * lhs == rhs: return 0
+ * lhs > rhs:  return >0
+ */
+static inline int timespec_compare(const struct timespec *lhs, const struct timespec *rhs)
+{
+	if (lhs->tv_sec < rhs->tv_sec)
+		return -1;
+	if (lhs->tv_sec > rhs->tv_sec)
+		return 1;
+	return lhs->tv_nsec - rhs->tv_nsec;
+}
+
+static inline struct timespec timespec_add(struct timespec lhs,
+					   struct timespec rhs)
+{
+	struct timespec ts_delta;
+
+	set_normalized_timespec(&ts_delta, lhs.tv_sec + rhs.tv_sec,
+				lhs.tv_nsec + rhs.tv_nsec);
+
+	return ts_delta;
+}
+
+/*
+ * sub = lhs - rhs, in normalized form
+ */
+static inline struct timespec timespec_sub(struct timespec lhs,
+					   struct timespec rhs)
+{
+	struct timespec ts_delta;
+
+	set_normalized_timespec(&ts_delta, lhs.tv_sec - rhs.tv_sec,
+				lhs.tv_nsec - rhs.tv_nsec);
+
+	return ts_delta;
+}
+
+/**
+ * timespec_add_ns - Adds nanoseconds to a timespec
+ * @a:		pointer to timespec to be incremented
+ * @ns:		unsigned nanoseconds value to be added
+ *
+ */
+static inline void timespec_add_ns(struct timespec *a, uint64_t ns)
+{
+	a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NSEC_PER_SEC, &ns);
+	a->tv_nsec = ns;
+}
 
 #endif

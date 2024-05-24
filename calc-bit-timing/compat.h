@@ -11,13 +11,13 @@
 #include <linux/can/netlink.h>
 #include <linux/types.h>
 
+#include <lib.h>
+
 /* imported from kernel */
 
 /* define in-kernel-types */
 typedef __u64 u64;
 typedef __u32 u32;
-
-#define NSEC_PER_SEC	1000000000L
 
 #define CAN_CALC_MAX_ERROR 50 /* in one-tenth of a percent */
 #define CAN_CALC_SYNC_SEG 1
@@ -97,23 +97,6 @@ typedef __u32 u32;
  */
 #define DIV_U64_ROUND_CLOSEST(dividend, divisor)	\
 	({ u32 _tmp = (divisor); div_u64((u64)(dividend) + _tmp / 2, _tmp); })
-
-/**
- * div_u64_rem - unsigned 64bit divide with 32bit divisor with remainder
- * @dividend: unsigned 64bit dividend
- * @divisor: unsigned 32bit divisor
- * @remainder: pointer to unsigned 32bit remainder
- *
- * Return: sets ``*remainder``, then returns dividend / divisor
- *
- * This is commonly provided by 32bit archs to provide an optimized 64bit
- * divide.
- */
-static inline u64 div_u64_rem(u64 dividend, u32 divisor, u32 *remainder)
-{
-	*remainder = dividend % divisor;
-	return dividend / divisor;
-}
 
 static inline u64 div_u64(u64 dividend, u32 divisor)
 {
