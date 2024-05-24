@@ -557,7 +557,7 @@ int main(int argc, char **argv)
 			} /* while frames_to_send ... */
 
 			if (infinite_loops || loops)
-				if (nanosleep(&sleep_ts, NULL))
+				if (clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_ts, NULL))
 					return 1;
 
 			delay_loops++; /* private statistics */
