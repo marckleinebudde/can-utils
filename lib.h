@@ -48,6 +48,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
+
+#include <linux/can.h>
 
 #ifdef DEBUG
 #define pr_debug(fmt, args...) printf(fmt, ##args)
