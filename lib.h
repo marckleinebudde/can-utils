@@ -45,8 +45,8 @@
 #ifndef CAN_UTILS_LIB_H
 #define CAN_UTILS_LIB_H
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #ifdef DEBUG
