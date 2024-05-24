@@ -131,47 +131,33 @@ static void print_usage(char *prg)
 			"timestamp) are ignored.\n\n");
 }
 
-/* copied from /usr/src/linux/include/linux/time.h ...
- * lhs < rhs:  return <0
- * lhs == rhs: return 0
- * lhs > rhs:  return >0
- */
-static inline int timeval_compare(struct timeval *lhs, struct timeval *rhs)
+static inline void create_diff_ts(struct timespec *today, struct timespec *diff, struct timespec *log)
 {
-	if (lhs->tv_sec < rhs->tv_sec)
-		return -1;
-	if (lhs->tv_sec > rhs->tv_sec)
-		return 1;
-	return lhs->tv_usec - rhs->tv_usec;
-}
-
-static inline void create_diff_tv(struct timeval *today, struct timeval *diff, struct timeval *log)
-{
-	/* create diff_tv so that log_tv + diff_tv = today_tv */
+	/* create diff so that log + diff = today */
 	diff->tv_sec = today->tv_sec - log->tv_sec;
-	diff->tv_usec = today->tv_usec - log->tv_usec;
+	diff->tv_nsec = today->tv_nsec - log->tv_nsec;
 }
 
-static inline int frames_to_send(struct timeval *today, struct timeval *diff, struct timeval *log)
+static inline int frames_to_send(struct timespec *today, struct timespec *diff, struct timespec *log)
 {
 	/* return value <0 when log + diff < today */
 
-	struct timeval cmp;
+	struct timespec cmp;
 
 	cmp.tv_sec = log->tv_sec + diff->tv_sec;
-	cmp.tv_usec = log->tv_usec + diff->tv_usec;
+	cmp.tv_nsec = log->tv_nsec + diff->tv_nsec;
 
-	if (cmp.tv_usec >= 1000000) {
-		cmp.tv_usec -= 1000000;
+	if (cmp.tv_nsec >= 1000000000) {
+		cmp.tv_nsec -= 1000000000;
 		cmp.tv_sec++;
 	}
 
-	if (cmp.tv_usec < 0) {
-		cmp.tv_usec += 1000000;
+	if (cmp.tv_nsec < 0) {
+		cmp.tv_nsec += 1000000000;
 		cmp.tv_sec--;
 	}
 
-	return timeval_compare(&cmp, today);
+	return timespec_compare(&cmp, today);
 }
 
 static int get_txidx(char *logif_name)
@@ -262,7 +248,7 @@ int main(int argc, char **argv)
 		.flags = CAN_RAW_XL_VCID_TX_PASS,
 	};
 	static cu_t cu;
-	static struct timeval today_tv, log_tv, last_log_tv, diff_tv;
+	static struct timespec today_ts, log_ts, last_log_ts, diff_ts;
 	struct timespec sleep_ts;
 	int s; /* CAN_RAW socket */
 	FILE *infile = stdin;
@@ -451,8 +437,8 @@ int main(int argc, char **argv)
 			fprintf(stderr, "incorrect line format in logfile\n");
 			return 1;
 		}
-		log_tv.tv_sec = sec;
-		log_tv.tv_usec = usec;
+		log_ts.tv_sec = sec;
+		log_ts.tv_nsec = usec * 1000;
 
 		/*
 		 * ensure the fractions of seconds are 6 decimal places long to catch
@@ -465,18 +451,18 @@ int main(int argc, char **argv)
 
 		if (use_timestamps) { /* throttle sending due to logfile timestamps */
 
-			gettimeofday(&today_tv, NULL);
-			create_diff_tv(&today_tv, &diff_tv, &log_tv);
-			last_log_tv = log_tv;
+			clock_gettime(CLOCK_MONOTONIC, &today_ts);
+			create_diff_ts(&today_ts, &diff_ts, &log_ts);
+			last_log_ts = log_ts;
 		}
 
 		while (!eof) {
-			while ((!use_timestamps) || (frames_to_send(&today_tv, &diff_tv, &log_tv) < 0)) {
+			while ((!use_timestamps) || (frames_to_send(&today_ts, &diff_ts, &log_ts) < 0)) {
 				/* wait for keypress to process next frame */
 				if (interactive)
 					getchar();
 
-				/* log_tv/device/afrbuf are valid here */
+				/* log_ts/device/afrbuf are valid here */
 
 				if (strlen(device) >= IFNAMSIZ) {
 					fprintf(stderr, "log interface name '%s' too long!", device);
@@ -545,8 +531,8 @@ int main(int argc, char **argv)
 					fprintf(stderr, "incorrect line format in logfile\n");
 					return 1;
 				}
-				log_tv.tv_sec = sec;
-				log_tv.tv_usec = usec;
+				log_ts.tv_sec = sec;
+				log_ts.tv_nsec = usec * 1000;
 
 				/*
 				 * ensure the fractions of seconds are 6 decimal places long to catch
@@ -558,14 +544,14 @@ int main(int argc, char **argv)
 				}
 
 				if (use_timestamps) {
-					gettimeofday(&today_tv, NULL);
+					clock_gettime(CLOCK_MONOTONIC, &today_ts);
 
 					/* test for logfile timestamps jumping backwards OR      */
 					/* if the user likes to skip long gaps in the timestamps */
-					if ((last_log_tv.tv_sec > log_tv.tv_sec) || (skipgap && labs(last_log_tv.tv_sec - log_tv.tv_sec) > (long)skipgap))
-						create_diff_tv(&today_tv, &diff_tv, &log_tv);
+					if ((last_log_ts.tv_sec > log_ts.tv_sec) || (skipgap && labs(last_log_ts.tv_sec - log_ts.tv_sec) > (long)skipgap))
+						create_diff_ts(&today_ts, &diff_ts, &log_ts);
 
-					last_log_tv = log_tv;
+					last_log_ts = log_ts;
 				}
 
 			} /* while frames_to_send ... */
@@ -575,7 +561,7 @@ int main(int argc, char **argv)
 					return 1;
 
 			delay_loops++; /* private statistics */
-			gettimeofday(&today_tv, NULL);
+			clock_gettime(CLOCK_MONOTONIC, &today_ts);
 
 		} /* while (!eof) */
 
