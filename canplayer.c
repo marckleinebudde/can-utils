@@ -570,8 +570,9 @@ int main(int argc, char **argv)
 
 			} /* while frames_to_send ... */
 
-			if (nanosleep(&sleep_ts, NULL))
-				return 1;
+			if (infinite_loops || loops)
+				if (nanosleep(&sleep_ts, NULL))
+					return 1;
 
 			delay_loops++; /* private statistics */
 			gettimeofday(&today_tv, NULL);
