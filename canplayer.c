@@ -44,6 +44,7 @@
 
 #include <libgen.h>
 #include <net/if.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -131,33 +132,9 @@ static void print_usage(char *prg)
 			"timestamp) are ignored.\n\n");
 }
 
-static inline void create_diff_ts(struct timespec *today, struct timespec *diff, struct timespec *log)
+static inline bool frames_to_send(struct timespec *now, struct timespec *next)
 {
-	/* create diff so that log + diff = today */
-	diff->tv_sec = today->tv_sec - log->tv_sec;
-	diff->tv_nsec = today->tv_nsec - log->tv_nsec;
-}
-
-static inline int frames_to_send(struct timespec *today, struct timespec *diff, struct timespec *log)
-{
-	/* return value <0 when log + diff < today */
-
-	struct timespec cmp;
-
-	cmp.tv_sec = log->tv_sec + diff->tv_sec;
-	cmp.tv_nsec = log->tv_nsec + diff->tv_nsec;
-
-	if (cmp.tv_nsec >= 1000000000) {
-		cmp.tv_nsec -= 1000000000;
-		cmp.tv_sec++;
-	}
-
-	if (cmp.tv_nsec < 0) {
-		cmp.tv_nsec += 1000000000;
-		cmp.tv_sec--;
-	}
-
-	return timespec_compare(&cmp, today);
+	return (timespec_compare(now, next) >= 0);
 }
 
 static int get_txidx(char *logif_name)
@@ -248,8 +225,8 @@ int main(int argc, char **argv)
 		.flags = CAN_RAW_XL_VCID_TX_PASS,
 	};
 	static cu_t cu;
-	static struct timespec today_ts, log_ts, last_log_ts, diff_ts;
-	struct timespec sleep_ts;
+	static struct timespec now_ts, log_rel_ts, last_log_ts, log_ts, offset_ts;
+	struct timespec gap_ts;
 	int s; /* CAN_RAW socket */
 	FILE *infile = stdin;
 	unsigned long gap = DEFAULT_GAP;
@@ -257,7 +234,7 @@ int main(int argc, char **argv)
 	int interactive = 0; /* wait for ENTER keypress to process next frame */
 	int count = 0; /* end replay after sending count frames. 0 = disabled */
 	static int verbose, opt, delay_loops;
-	static unsigned long skipgap;
+	uint64_t skipgap_ns;
 	static int loopback_disable = 0;
 	static int infinite_loops = 0;
 	static int loops = DEFAULT_LOOPS;
@@ -306,14 +283,18 @@ int main(int argc, char **argv)
 			gap = strtoul(optarg, NULL, 10);
 			break;
 
-		case 's':
-			skipgap = strtoul(optarg, NULL, 10);
-			if (skipgap < 1) {
+		case 's': {
+			unsigned long skipgap_ms;
+
+			skipgap_ms = strtoul(optarg, NULL, 10);
+			if (skipgap_ms < 1) {
 				fprintf(stderr, "Invalid argument for option -s !\n");
 				return 1;
 			}
-			break;
 
+			skipgap_ns = skipgap_ms * NSEC_PER_MSEC;
+			break;
+		}
 		case 'x':
 			loopback_disable = 1;
 			break;
@@ -354,8 +335,8 @@ int main(int argc, char **argv)
 		printf("interactive mode: press ENTER to process next CAN frame ...\n");
 	}
 
-	sleep_ts.tv_sec = gap / 1000;
-	sleep_ts.tv_nsec = (gap % 1000) * 1000000;
+	gap_ts.tv_sec = gap / 1000;
+	gap_ts.tv_nsec = (gap % 1000) * 1000000;
 
 	/* open socket */
 	if ((s = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
@@ -437,8 +418,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "incorrect line format in logfile\n");
 			return 1;
 		}
-		log_ts.tv_sec = sec;
-		log_ts.tv_nsec = usec * 1000;
+		log_rel_ts = ns_to_timespec(sec * NSEC_PER_SEC + usec * NSEC_PER_USEC);
 
 		/*
 		 * ensure the fractions of seconds are 6 decimal places long to catch
@@ -449,15 +429,20 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if (use_timestamps) { /* throttle sending due to logfile timestamps */
+		if (use_timestamps) {
+			/*
+			 * offset_ts = now_ts - log_rel_ts
+			 * ->
+			 * log_ts = log_rel_ts + offset_ts
+			 */
+			clock_gettime(CLOCK_MONOTONIC, &now_ts);
 
-			clock_gettime(CLOCK_MONOTONIC, &today_ts);
-			create_diff_ts(&today_ts, &diff_ts, &log_ts);
-			last_log_ts = log_ts;
+			log_ts = now_ts;
+			offset_ts = timespec_sub(now_ts, log_rel_ts);
 		}
 
 		while (!eof) {
-			while ((!use_timestamps) || (frames_to_send(&today_ts, &diff_ts, &log_ts) < 0)) {
+			while (!use_timestamps || frames_to_send(&now_ts, &log_ts)) {
 				/* wait for keypress to process next frame */
 				if (interactive)
 					getchar();
@@ -531,8 +516,9 @@ int main(int argc, char **argv)
 					fprintf(stderr, "incorrect line format in logfile\n");
 					return 1;
 				}
-				log_ts.tv_sec = sec;
-				log_ts.tv_nsec = usec * 1000;
+				last_log_ts = log_ts;
+				log_rel_ts = ns_to_timespec(sec * NSEC_PER_SEC + usec * NSEC_PER_USEC);
+				log_ts = timespec_add(log_rel_ts, offset_ts);
 
 				/*
 				 * ensure the fractions of seconds are 6 decimal places long to catch
@@ -543,25 +529,26 @@ int main(int argc, char **argv)
 					return 1;
 				}
 
-				if (use_timestamps) {
-					clock_gettime(CLOCK_MONOTONIC, &today_ts);
+				if (0 && use_timestamps) {
+					/*
+					 * test for logfile timestamps jumping backwards - OR -
+					 * if the user likes to skip long gaps in the timestamps
+					 */
+					if (timespec_compare(&log_ts, &last_log_ts) < 0) {
 
-					/* test for logfile timestamps jumping backwards OR      */
-					/* if the user likes to skip long gaps in the timestamps */
-					if ((last_log_ts.tv_sec > log_ts.tv_sec) || (skipgap && labs(last_log_ts.tv_sec - log_ts.tv_sec) > (long)skipgap))
-						create_diff_ts(&today_ts, &diff_ts, &log_ts);
-
-					last_log_ts = log_ts;
+					}
 				}
 
-			} /* while frames_to_send ... */
+			}
 
-			if (infinite_loops || loops)
-				if (clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_ts, NULL))
+			if (!eof || infinite_loops || loops)
+				if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &log_ts, NULL))
 					return 1;
 
+			//printf("%s: delay_loops=%u\n", __func__, delay_loops);
+
 			delay_loops++; /* private statistics */
-			clock_gettime(CLOCK_MONOTONIC, &today_ts);
+			clock_gettime(CLOCK_MONOTONIC, &now_ts);
 
 		} /* while (!eof) */
 

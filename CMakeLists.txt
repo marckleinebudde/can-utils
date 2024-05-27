@@ -32,6 +32,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCLOCK_TAI=11")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSO_TXTIME=61")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSCM_TXTIME=SO_TXTIME")
 
+add_compile_options(
+  "$<$<CONFIG:DEBUG>:-O0;-g3;-ggdb;-Wgnu-variable-sized-type-not-at-end>"
+)
+
 include_directories (.)
 include_directories (./include)
 
